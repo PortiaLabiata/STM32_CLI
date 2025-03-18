@@ -11,7 +11,6 @@ static uint8_t __command_rdy_flag = RESET;
 
 static CLI_Command_t commands[MAX_COMMANDS];
 static int __num_commands = 0;
-char *argv[MAX_ARGUMENTS];
 
 /* Syscalls */
 
@@ -80,21 +79,20 @@ CLI_Status_t CLI_RUN(void)
 
 CLI_Status_t CLI_ProcessCommand(void)
 {
-    //CLI_CRITICAL();
+    CLI_CRITICAL();
     int argc = 0;
+    char *argv[MAX_ARGUMENTS];
     argv[argc++] = strtok((char*)__line, " ");
-    while ((argv[argc] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) {
-        argc++;
-    }
+    while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
 
     for (int i = 0; i < __num_commands; i++) {
         if (strcmp(argv[0], commands[i].command) == 0) {
-            //CLI_UNCRITICAL();
+            CLI_UNCRITICAL();
             return commands[i].func(argc, argv);
         }
     }
-    //CLI_UNCRITICAL();
     printf("Error: command not found!\n");
+    CLI_UNCRITICAL();
     return CLI_ERROR;
 }
 
@@ -116,7 +114,8 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
 
 CLI_Status_t HelpHandler(int argc, char *argv[])
 {
-    printf("hep\n");
+    printf("Help is on the way!\n");
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     return CLI_OK;
 }
 
@@ -137,7 +136,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == __cli_uart->Instance) {
 
-        if (*__input == '\r' || *__input == '\n') {
+        if (*__input == '\r') {
             RingBuffer_write(&__buffer, (uint8_t*)"\r\n", 2);
             *__symbol = '\0';
             __symbol = __line;
@@ -145,8 +144,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         }
 
         if (__symbol - __line < MAX_LINE_LEN && __command_rdy_flag != SET) {
-            *__symbol++ = *__input;
-            CLI_Echo();
+            if (*__input == '\b') {
+                __symbol--;
+            } else if (*__input != '\n') {
+                *__symbol++ = *__input;
+                CLI_Echo();
+            }
         }
         __uart_rx_cplt_flag = SET;
     }
