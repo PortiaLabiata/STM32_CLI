@@ -34,10 +34,11 @@ RingBuffer_Status_t RingBuffer_pull(RingBuffer_t *buff, uint8_t *pData)
 
 /* Advanced operations */
 
-RingBuffer_Status_t RingBuffer_write(RingBuffer_t *buff, uint8_t *pData, unsigned int size)
+RingBuffer_Status_t RingBuffer_write(RingBuffer_t *buff, uint8_t *pData, unsigned int len)
 {
-    for (; size >= 0; size--) {
-        RingBuffer_Status_t status = RingBuffer_push(buff, pData++);
+    uint8_t *point = pData;
+    for (int i = len; i > 0; i--) {
+        RingBuffer_Status_t status = RingBuffer_push(buff, point++);
         if (status != RB_OK) return status;
     }
 }
