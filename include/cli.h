@@ -9,12 +9,6 @@
 
 #include "ring_buffer.h"
 
-#ifdef __GNUC__
-    #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
-#else
-    #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
-#endif /* __GNUC__ */
-
 #define CLI_CRITICAL() HAL_NVIC_DisableIRQ(USART1_IRQn)
 #define CLI_UNCRITICAL() HAL_NVIC_EnableIRQ(USART1_IRQn)
 
@@ -26,6 +20,14 @@
 #define MAX_LINE_LEN 256
 #define MAX_COMMANDS 64
 #define MAX_ARGUMENTS 10
+
+#ifndef CLI_HELP_MESSAGE
+    #define CLI_HELP_MESSAGE "Help is on the way!\n"
+#endif
+
+#ifndef CLI_PROMPT 
+    #define CLI_PROMPT "> "
+#endif
 
 /* Types */
 
@@ -44,7 +46,8 @@ typedef struct {
 /* Configuration functions */
 
 CLI_Status_t CLI_Init(UART_HandleTypeDef *huart);
-int __io_putchar(int ch);
+int _write(int fd, uint8_t *data, int size);
+int _isatty(int fd);
 
 /* Processing functions */
 

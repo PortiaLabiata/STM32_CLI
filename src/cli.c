@@ -50,6 +50,7 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
     RingBuffer_Init(&__buffer);
     setvbuf(stdout, NULL, _IONBF, 0);
     CLI_AddCommand("help", HelpHandler);
+    printf(CLI_PROMPT);
 
     HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
     return CLI_OK;
@@ -69,6 +70,7 @@ CLI_Status_t CLI_RUN(void)
         if (__command_rdy_flag == SET) {
             CLI_ProcessCommand();
             __command_rdy_flag = RESET;
+            printf(CLI_PROMPT);
         }
         __uart_rx_cplt_flag = RESET;
         HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
@@ -114,7 +116,7 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
 
 CLI_Status_t HelpHandler(int argc, char *argv[])
 {
-    printf("Help is on the way!\n");
+    printf(CLI_HELP_MESSAGE);
     //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     return CLI_OK;
 }
