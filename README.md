@@ -25,5 +25,7 @@ By default, there is only one command available: `help`. To set this message, us
 Or it will be set to default "Help is on the way!". Similarly, you can define `CLI_PROMPT` to change prompt.
 
 To add custom commands, call:
+
     CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]));
+
 where `char cmd[]` is command's name and `func` is the handler. The handler takes two arguments: `int argc` (number of symbolic arguments) and `char *argv[]` (arguments themselves), kind of like `main` function in desktop C. Internal logic of commands, including argument processing, is entirely up to you.
