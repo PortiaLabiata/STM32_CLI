@@ -115,7 +115,7 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
 CLI_Status_t HelpHandler(int argc, char *argv[])
 {
     printf("Help is on the way!\n");
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     return CLI_OK;
 }
 

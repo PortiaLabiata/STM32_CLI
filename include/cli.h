@@ -1,4 +1,5 @@
 #pragma once
+#define DEBUG_MODE
 #include "main.h"
 
 #include <stdio.h>

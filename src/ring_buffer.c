@@ -41,6 +41,7 @@ RingBuffer_Status_t RingBuffer_write(RingBuffer_t *buff, uint8_t *pData, unsigne
         RingBuffer_Status_t status = RingBuffer_push(buff, point++);
         if (status != RB_OK) return status;
     }
+    return RB_OK;
 }
 
 RingBuffer_Status_t RingBuffer_read(RingBuffer_t *buff, uint8_t *pData, unsigned int size)
