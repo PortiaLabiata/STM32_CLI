@@ -7,5 +7,5 @@
 
 /* Preferences */
 
-#define DISPLAY_GREETING
+#define CLI_DISPLAY_GREETING
 //#define DEBUG_MODE

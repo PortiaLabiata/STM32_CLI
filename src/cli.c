@@ -25,10 +25,8 @@ int _write(int fd, uint8_t *data, int size)
         return -1;
     }
 
-    if (HAL_UART_Transmit_IT(__cli_uart, data, size) != HAL_OK) {
-        if (RingBuffer_write(&__buffer, data, size) != RB_OK)
+    if (RingBuffer_write(&__buffer, data, size) != RB_OK)
             return -1;
-    }
 
     return size;
 }
@@ -61,7 +59,7 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 #ifdef CLI_DISPLAY_GREETING
     printf("%s\n", CLI_GREETING);
 #endif
-    printf("%s", CLI_PROMPT);
+    printf(CLI_PROMPT);
 
     HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
     return CLI_OK;
@@ -72,7 +70,7 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 CLI_Status_t CLI_RUN(void)
 {
     unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
-    if ((__uart_tx_pend_flag == RESET) && buffer_size) {
+    if ((__uart_tx_pend_flag == RESET) && (buffer_size > 0)) {
         RingBuffer_read(&__buffer, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
         __uart_tx_pend_flag = SET;
         HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
@@ -83,7 +81,7 @@ CLI_Status_t CLI_RUN(void)
         if (__command_rdy_flag == SET) {
             status = CLI_ProcessCommand();
             __command_rdy_flag = RESET;
-            printf("%s ", CLI_PROMPT);
+            printf("%s", CLI_PROMPT);
         }
         __uart_rx_cplt_flag = RESET;
         HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
