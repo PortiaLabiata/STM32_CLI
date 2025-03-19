@@ -13,7 +13,7 @@ RingBuffer_Status_t RingBuffer_Init(RingBuffer_t *buff)
 RingBuffer_Status_t RingBuffer_push(RingBuffer_t *buff, uint8_t *pData)
 {
     if (pData == NULL || buff == NULL) return RB_NULL;
-    if (buff->size == MAX_BUFFER_LEN) return RB_OVERFLOW;
+    if (buff->size >= MAX_BUFFER_LEN) return RB_OVERFLOW;
 
     *(buff->head) = *pData;
     buff->head = buff->buffer + ((buff->head - buff->buffer + 1) % MAX_BUFFER_LEN);
@@ -24,7 +24,7 @@ RingBuffer_Status_t RingBuffer_push(RingBuffer_t *buff, uint8_t *pData)
 RingBuffer_Status_t RingBuffer_pull(RingBuffer_t *buff, uint8_t *pData)
 {
     if (pData == NULL || buff == NULL) return RB_NULL;
-    if (buff->size == 0) return RB_UNDERFLOW;
+    if (buff->size <= 0) return RB_UNDERFLOW;
 
     *pData = *buff->tail;
     buff->tail = buff->buffer + ((buff->tail - buff->buffer + 1) % MAX_BUFFER_LEN);
@@ -37,7 +37,7 @@ RingBuffer_Status_t RingBuffer_pull(RingBuffer_t *buff, uint8_t *pData)
 RingBuffer_Status_t RingBuffer_write(RingBuffer_t *buff, uint8_t *pData, unsigned int len)
 {
     uint8_t *point = pData;
-    for (int i = len; i > 0; i--) {
+    for (int i = 0; i < len; i++) {
         RingBuffer_Status_t status = RingBuffer_push(buff, point++);
         if (status != RB_OK) return status;
     }

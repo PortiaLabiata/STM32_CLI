@@ -13,6 +13,9 @@ static uint8_t __uart_tx_pend_flag = RESET;
 
 static CLI_Command_t __commands[MAX_COMMANDS];
 static int __num_commands = 0;
+static uint8_t __pData[CHUNK_SIZE];
+
+#define MIN(a, b) (a > b) ? b : a
 
 /* Syscalls */
 
@@ -22,12 +25,16 @@ int _write(int fd, uint8_t *data, int size)
         return -1;
     }
 
-    if (size == 1) {
-        RingBuffer_push(&__buffer, data);
-    } else {
-        RingBuffer_write(&__buffer, data, size);
+    CLI_CRITICAL();
+    
+    if (HAL_UART_Transmit_IT(__cli_uart, data, size) != HAL_OK) {
+        if (RingBuffer_write(&__buffer, data, size) == RB_OVERFLOW) {
+            __NOP();
+        }
     }
 
+    CLI_UNCRITICAL();
+    
     return size;
 }
 
@@ -50,7 +57,7 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
     __cli_uart = huart;
     __symbol = __line;
     RingBuffer_Init(&__buffer);
-    setvbuf(stdout, NULL, _IONBF, 0);
+    //setvbuf(stdout, NULL, _IONBF, 0);
 
     CLI_AddCommand("help", &HelpHandler, "Prints this message.");
     CLI_AddCommand("test", &test_Handler, "Simply prints it's arguments");
@@ -70,10 +77,9 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 CLI_Status_t CLI_RUN(void)
 {
     if ((__uart_tx_pend_flag == RESET) && RingBuffer_GetSize(&__buffer)) {
-        uint8_t pData[1];
-        RingBuffer_pull(&__buffer, (uint8_t*)pData);
+        RingBuffer_pull(&__buffer, (uint8_t*)__pData);
         __uart_tx_pend_flag = SET;
-        HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
+        HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)__pData, 1);
     }
     CLI_Status_t status;
     if (__uart_rx_cplt_flag == SET) {
@@ -152,7 +158,7 @@ void CLI_Print(char message[])
 CLI_Status_t HelpHandler(int argc, char *argv[])
 {
     for (int i = 0; i < __num_commands; i++) {
-        printf("%s\t%s\n", __commands[i].command, __commands[i].help);
+        printf("%s\t%s\n\r", __commands[i].command, __commands[i].help);
     }
     return CLI_OK;
 }
@@ -160,7 +166,7 @@ CLI_Status_t HelpHandler(int argc, char *argv[])
 CLI_Status_t test_Handler(int argc, char *argv[])
 {
     for (int i = 1; i < argc; i++) {
-        printf("%s\n", argv[i]);
+        printf("%s\r\n", argv[i]);
     }
     return CLI_OK;
 }
@@ -180,13 +186,18 @@ CLI_Status_t err_Handler(int argc, char *argv[])
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == __cli_uart->Instance) {
-        if (RingBuffer_GetSize(&__buffer) > 0) {
-            uint8_t pData[1];
-            RingBuffer_pull(&__buffer, (uint8_t*)pData);
-            HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
+        CLI_CRITICAL();
+
+        unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
+        if (buffer_size > 0) {
+            unsigned int send_size = buffer_size >= CHUNK_SIZE ? CHUNK_SIZE : 1;
+            RingBuffer_read(&__buffer, __pData, send_size);
+            HAL_UART_Transmit_IT(__cli_uart, __pData, send_size);
         } else {
             __uart_tx_pend_flag = RESET;
         }
+
+        CLI_UNCRITICAL();
     }
 }
 
@@ -203,8 +214,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
         if (__symbol - __line < MAX_LINE_LEN && __command_rdy_flag != SET) {
             if (*__input == '\b') {
-                __symbol--;
-                CLI_Echo();
+                if (__symbol > __line) {
+                    __symbol--;
+                    CLI_Echo();
+                }
             } else if (*__input != '\n') {
                 *__symbol++ = *__input;
                 CLI_Echo();
