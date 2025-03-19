@@ -67,7 +67,6 @@ CLI_Status_t CLI_RUN(void)
 {
     if (RingBuffer_GetSize(&__buffer) > 0) {
         uint8_t pData[1];
-        HAL_UART_StateTypeDef state = HAL_UART_GetState(&__cli_uart);
         if (__uart_tx_pend_flag == SET) return CLI_OK;
 
         RingBuffer_pull(&__buffer, (uint8_t*)pData);
