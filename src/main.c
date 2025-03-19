@@ -3,6 +3,8 @@
 GPIO_InitTypeDef GPIO_InitStruc;
 UART_HandleTypeDef huart1;
 
+CLI_Status_t test_Handler(int argc, char *argv[]);
+
 int main(void)
 {
     HAL_Init();
@@ -13,7 +15,7 @@ int main(void)
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
     CLI_Init(&huart1);
-    CLI_Println("f");
+
     //CLI_Log(__FILE__, "CLI ready.");
 
     while (1) {

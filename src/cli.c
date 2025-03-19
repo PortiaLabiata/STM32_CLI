@@ -51,7 +51,8 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
     __symbol = __line;
     RingBuffer_Init(&__buffer);
     setvbuf(stdout, NULL, _IONBF, 0);
-    CLI_AddCommand("help", HelpHandler, "Prints this message.");
+    CLI_AddCommand("help", &HelpHandler, "Prints this message.");
+    CLI_AddCommand("test", &test_Handler, "Simply prints it's arguments");
 #ifdef CLI_DISPLAY_GREETING
     printf("%s\n", CLI_GREETING);
 #endif
@@ -150,6 +151,14 @@ CLI_Status_t HelpHandler(int argc, char *argv[])
 {
     for (int i = 0; i < __num_commands; i++) {
         printf("%s\t%s\n", __commands[i].command, __commands[i].help);
+    }
+    return CLI_OK;
+}
+
+CLI_Status_t test_Handler(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; i++) {
+        printf("%s\n", argv[i]);
     }
     return CLI_OK;
 }
