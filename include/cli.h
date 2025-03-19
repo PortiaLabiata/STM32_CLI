@@ -1,5 +1,4 @@
 #pragma once
-#define DEBUG_MODE
 #include "main.h"
 
 #include <stdio.h>
@@ -8,6 +7,7 @@
 #include <string.h>
 
 #include "ring_buffer.h"
+#include "cli_const.h"
 
 #define CLI_CRITICAL() HAL_NVIC_DisableIRQ(USART1_IRQn)
 #define CLI_UNCRITICAL() HAL_NVIC_EnableIRQ(USART1_IRQn)
@@ -17,16 +17,13 @@
 #define STDOUT_FILENO 0
 #define STDIN_FILENO 1
 #define STDERR_FILENO 2
-#define MAX_LINE_LEN 256
-#define MAX_COMMANDS 64
-#define MAX_ARGUMENTS 10
-
-#ifndef CLI_HELP_MESSAGE
-    #define CLI_HELP_MESSAGE "Help is on the way!\n"
-#endif
 
 #ifndef CLI_PROMPT 
     #define CLI_PROMPT "> "
+#endif
+
+#ifndef CLI_GREETING
+    #define CLI_GREETING "bShell debug console\n"
 #endif
 
 /* Types */
@@ -39,6 +36,7 @@ typedef enum {
 typedef struct {
     char *command;
     CLI_Status_t (*func)(int argc, char *argv[]); 
+    char *help;
 } CLI_Command_t;
 
 /* Global variables */
@@ -54,7 +52,13 @@ int _isatty(int fd);
 CLI_Status_t CLI_RUN(void);
 CLI_Status_t CLI_Echo(void);
 CLI_Status_t CLI_ProcessCommand(void);
-CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]));
+CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
+    char help[]);
+
+/* HIgh-level IO */
+
+void CLI_Println(char message[]);
+void CLI_Log(char context[], char message[]);
 
 /* Handlers */
 

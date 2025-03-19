@@ -3,13 +3,14 @@
 /* Global variables */
 static UART_HandleTypeDef *__cli_uart;
 static RingBuffer_t __buffer;
+
 static uint8_t __input[1];
 static uint8_t __line[MAX_LINE_LEN];
 static uint8_t *__symbol;
 static uint8_t __uart_rx_cplt_flag = RESET;
 static uint8_t __command_rdy_flag = RESET;
 
-static CLI_Command_t commands[MAX_COMMANDS];
+static CLI_Command_t __commands[MAX_COMMANDS];
 static int __num_commands = 0;
 
 /* Syscalls */
@@ -49,7 +50,10 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
     __symbol = __line;
     RingBuffer_Init(&__buffer);
     setvbuf(stdout, NULL, _IONBF, 0);
-    CLI_AddCommand("help", HelpHandler);
+    CLI_AddCommand("help", HelpHandler, "Prints this message.");
+#ifdef CLI_DISPLAY_GREETING
+    printf(CLI_GREETING);
+#endif
     printf(CLI_PROMPT);
 
     HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
@@ -88,9 +92,9 @@ CLI_Status_t CLI_ProcessCommand(void)
     while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
 
     for (int i = 0; i < __num_commands; i++) {
-        if (strcmp(argv[0], commands[i].command) == 0) {
+        if (strcmp(argv[0], __commands[i].command) == 0) {
             CLI_UNCRITICAL();
-            return commands[i].func(argc, argv);
+            return __commands[i].func(argc, argv);
         }
     }
     printf("Error: command not found!\n");
@@ -105,19 +109,34 @@ CLI_Status_t CLI_Echo(void)
     return CLI_OK;
 }
 
-CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]))
+CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
+    char help[])
 {
-    commands[__num_commands].command = cmd;
-    commands[__num_commands++].func = func;
+    __commands[__num_commands].command = cmd;
+    __commands[__num_commands].func = func;
+    __commands[__num_commands++].help = help;
     return CLI_OK;
+}
+
+/* High-level IO */
+
+void CLI_Println(char message[])
+{
+    printf("%s\n", message);
+}
+
+void CLI_Log(char context[], char message[])
+{
+    printf("[%s] %s", context, message);
 }
 
 /* Handlers */
 
 CLI_Status_t HelpHandler(int argc, char *argv[])
 {
-    printf(CLI_HELP_MESSAGE);
-    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    for (int i = 0; i < __num_commands; i++) {
+        printf("%s\t%s\n", __commands[i].command, __commands[i].help);
+    }
     return CLI_OK;
 }
 

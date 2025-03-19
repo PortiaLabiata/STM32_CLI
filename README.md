@@ -16,13 +16,19 @@ For this library to work, at least one UART interface must be initialized and it
 
 To initialize bShell, you need to call `CLI_Init(UART_HandlyTypeDef *huart)` somewhere in the `main` function or wherever you like, hypothetically. Also you need to call `CLI_RUN()` somewhere in the main loop. Right now there is not too much customization, but it is still being worked on. 
 
+To print something in console, use `CLI_Println(char message[])` and call `CLI_Log(char context[], char message[])` for logging. The message will be displayed like this:
+
+    [<context>] message
+
+For example, it might be a good idea to use `CLI_Log(__FILE__, message)` to determine, from which file did the call happen.
+
 ### Adding custom commands
 
-By default, there is only one command available: `help`. To set this message, use:
+By default, there is only one command available: `help`. It will list all commands ant their help messages. To set this prompt, use in `cli_const.h`:
 
-    #define CLI_HELP_MESSAGE <Your message>
+    #define CLI_PROMPT <Your prompt>
     ...
-Or it will be set to default "Help is on the way!". Similarly, you can define `CLI_PROMPT` to change prompt.
+Or it will be set to default "> ". Similarly, it is possible to set custom greeting, to display greeting, use `#define CLI_DISPLAY_GREETING`.
 
 To add custom commands, call:
 
