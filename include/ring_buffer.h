@@ -3,7 +3,7 @@
 
 /* Magic numbers */
 
-#define MAX_BUFFER_LEN 128
+#define MAX_BUFFER_LEN 256
 
 /* Types */
 

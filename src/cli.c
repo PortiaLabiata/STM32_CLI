@@ -13,6 +13,9 @@ static uint8_t __uart_tx_pend_flag = RESET;
 
 static CLI_Command_t __commands[MAX_COMMANDS];
 static int __num_commands = 0;
+uint8_t __pData[CHUNK_SIZE];
+
+#define MIN(a, b) ((a < b) ? a : b)
 
 /* Syscalls */
 
@@ -22,10 +25,9 @@ int _write(int fd, uint8_t *data, int size)
         return -1;
     }
 
-    if (size == 1) {
-        RingBuffer_push(&__buffer, data);
-    } else {
-        RingBuffer_write(&__buffer, data, size);
+    if (HAL_UART_Transmit_IT(__cli_uart, data, size) != HAL_OK) {
+        if (RingBuffer_write(&__buffer, data, size) != RB_OK)
+            return -1;
     }
 
     return size;
@@ -69,13 +71,14 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 
 CLI_Status_t CLI_RUN(void)
 {
-    if ((__uart_tx_pend_flag == RESET) && RingBuffer_GetSize(&__buffer)) {
-        uint8_t pData[1];
-        RingBuffer_pull(&__buffer, (uint8_t*)pData);
+    unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
+    if ((__uart_tx_pend_flag == RESET) && buffer_size) {
+        RingBuffer_read(&__buffer, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
         __uart_tx_pend_flag = SET;
-        HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
+        HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
     }
-    CLI_Status_t status;
+
+    CLI_Status_t status = CLI_OK;
     if (__uart_rx_cplt_flag == SET) {
         if (__command_rdy_flag == SET) {
             status = CLI_ProcessCommand();
@@ -180,10 +183,10 @@ CLI_Status_t err_Handler(int argc, char *argv[])
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == __cli_uart->Instance) {
-        if (RingBuffer_GetSize(&__buffer) > 0) {
-            uint8_t pData[1];
-            RingBuffer_pull(&__buffer, (uint8_t*)pData);
-            HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
+        unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
+        if (buffer_size > 0) {
+            RingBuffer_read(&__buffer, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
+            HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
         } else {
             __uart_tx_pend_flag = RESET;
         }
