@@ -25,8 +25,10 @@ int _write(int fd, uint8_t *data, int size)
         return -1;
     }
 
-    if (RingBuffer_write(&__buffer, data, size) != RB_OK)
+    if (HAL_UART_Transmit_IT(__cli_uart, data, size) != HAL_OK) {
+        if (RingBuffer_write(&__buffer, data, size) != RB_OK)
             return -1;
+    }
 
     return size;
 }
@@ -67,13 +69,20 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 
 /* Processing functions */
 
+HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size)
+{
+    RingBuffer_read(&__buffer, __pData, MIN(CHUNK_SIZE, buffer_size));
+    return HAL_UART_Transmit_IT(__cli_uart, __pData, MIN(CHUNK_SIZE, buffer_size));
+}
+
 CLI_Status_t CLI_RUN(void)
 {
     unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
+    CLI_CRITICAL();
     if ((__uart_tx_pend_flag == RESET) && (buffer_size > 0)) {
-        RingBuffer_read(&__buffer, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
+        UART_TransmitChunk(buffer_size);
         __uart_tx_pend_flag = SET;
-        HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
+        CLI_UNCRITICAL();
     }
 
     CLI_Status_t status = CLI_OK;
@@ -81,12 +90,15 @@ CLI_Status_t CLI_RUN(void)
         if (__command_rdy_flag == SET) {
             status = CLI_ProcessCommand();
             __command_rdy_flag = RESET;
+            CLI_UNCRITICAL();
             printf("%s", CLI_PROMPT);
         }
         __uart_rx_cplt_flag = RESET;
+        CLI_UNCRITICAL();
         HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
 
     }
+    CLI_UNCRITICAL();
     return status;
 }
 
@@ -183,8 +195,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
     if (huart->Instance == __cli_uart->Instance) {
         unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
         if (buffer_size > 0) {
-            RingBuffer_read(&__buffer, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
-            HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)__pData, MIN(CHUNK_SIZE, buffer_size));
+            UART_TransmitChunk(buffer_size);
         } else {
             __uart_tx_pend_flag = RESET;
         }

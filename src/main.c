@@ -16,7 +16,7 @@ int main(void)
 
     CLI_Init(&huart1);
 
-    //CLI_Log(__FILE__, "CLI ready.");
+    CLI_Log(__FILE__, "CLI ready.");
 
     while (1) {
         CLI_RUN();

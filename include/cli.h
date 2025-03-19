@@ -51,6 +51,7 @@ int _isatty(int fd);
 
 /* Processing functions */
 
+HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size);
 CLI_Status_t CLI_RUN(void);
 CLI_Status_t CLI_Echo(void);
 CLI_Status_t CLI_ProcessCommand(void);
