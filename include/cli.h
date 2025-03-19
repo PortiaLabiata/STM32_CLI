@@ -1,5 +1,7 @@
 #pragma once
-#include "main.h"
+#include <stm32f1xx.h>
+#include <stm32f1xx_hal.h>
+#include <stm32f1xx_hal_uart.h>
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -52,9 +52,9 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
     setvbuf(stdout, NULL, _IONBF, 0);
     CLI_AddCommand("help", HelpHandler, "Prints this message.");
 #ifdef CLI_DISPLAY_GREETING
-    printf(CLI_GREETING);
+    printf("%s\n", CLI_GREETING);
 #endif
-    printf(CLI_PROMPT);
+    printf("%s", CLI_PROMPT);
 
     HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
     return CLI_OK;
@@ -64,19 +64,26 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 
 CLI_Status_t CLI_RUN(void)
 {
+    CLI_CRITICAL();
     if (RingBuffer_GetSize(&__buffer) > 0) {
         uint8_t pData[1];
-        if (HAL_UART_GetState(__cli_uart) != HAL_UART_STATE_READY) return CLI_OK;
+        HAL_UART_StateTypeDef state = HAL_UART_GetState(&__cli_uart);
+        if (state == HAL_UART_STATE_BUSY_TX || \
+            state == HAL_UART_STATE_BUSY_TX_RX) return CLI_OK;
+
         RingBuffer_pull(&__buffer, (uint8_t*)pData);
+        CLI_UNCRITICAL();
         HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
     }
     if (__uart_rx_cplt_flag == SET) {
         if (__command_rdy_flag == SET) {
             CLI_ProcessCommand();
             __command_rdy_flag = RESET;
-            printf(CLI_PROMPT);
+            CLI_UNCRITICAL();
+            printf("%s ", CLI_PROMPT);
         }
         __uart_rx_cplt_flag = RESET;
+        CLI_UNCRITICAL();
         HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
 
     }
@@ -127,7 +134,7 @@ void CLI_Println(char message[])
 
 void CLI_Log(char context[], char message[])
 {
-    printf("[%s] %s", context, message);
+    printf("\r\n[%s] %s\r\n", context, message);
 }
 
 /* Handlers */
@@ -144,13 +151,7 @@ CLI_Status_t HelpHandler(int argc, char *argv[])
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == __cli_uart->Instance) {
-        if (RingBuffer_GetSize(&__buffer) > 0) {
-            uint8_t pData;
-            RingBuffer_pull(&__buffer, &pData);
-            HAL_UART_Transmit_IT(__cli_uart, &pData, 1);
-        }
-    }
+
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
