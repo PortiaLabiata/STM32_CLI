@@ -61,6 +61,7 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
 
 void CLI_Println(char message[]);
 void CLI_Log(char context[], char message[]);
+void CLI_Print(char message[]);
 
 /* Handlers */
 

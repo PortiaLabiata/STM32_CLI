@@ -13,6 +13,8 @@ int main(void)
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
     CLI_Init(&huart1);
+    CLI_Println("f");
+    //CLI_Log(__FILE__, "CLI ready.");
 
     while (1) {
         CLI_RUN();
