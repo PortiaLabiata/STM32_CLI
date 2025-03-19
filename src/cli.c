@@ -51,8 +51,11 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
     __symbol = __line;
     RingBuffer_Init(&__buffer);
     setvbuf(stdout, NULL, _IONBF, 0);
+
     CLI_AddCommand("help", &HelpHandler, "Prints this message.");
     CLI_AddCommand("test", &test_Handler, "Simply prints it's arguments");
+    CLI_AddCommand("nop", &nop_Handler, "Does absolutely nothing.");
+    CLI_AddCommand("err", &err_Handler, "Returns CLI_ERROR, so should cause error.");
 #ifdef CLI_DISPLAY_GREETING
     printf("%s\n", CLI_GREETING);
 #endif
@@ -66,17 +69,16 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 
 CLI_Status_t CLI_RUN(void)
 {
-    if (RingBuffer_GetSize(&__buffer) > 0) {
+    if ((__uart_tx_pend_flag == RESET) && RingBuffer_GetSize(&__buffer)) {
         uint8_t pData[1];
-        if (__uart_tx_pend_flag == SET) return CLI_OK;
-
         RingBuffer_pull(&__buffer, (uint8_t*)pData);
         __uart_tx_pend_flag = SET;
         HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
     }
+    CLI_Status_t status;
     if (__uart_rx_cplt_flag == SET) {
         if (__command_rdy_flag == SET) {
-            CLI_ProcessCommand();
+            status = CLI_ProcessCommand();
             __command_rdy_flag = RESET;
             printf("%s ", CLI_PROMPT);
         }
@@ -84,7 +86,7 @@ CLI_Status_t CLI_RUN(void)
         HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
 
     }
-    return CLI_OK;
+    return status;
 }
 
 CLI_Status_t CLI_ProcessCommand(void)
@@ -134,7 +136,7 @@ void CLI_Println(char message[])
 void CLI_Log(char context[], char message[])
 {
     printf("\r\n");
-    printf("\r\n[%s] %s\r\n", context, message);
+    printf("[%s] %s\r\n", context, message);
     printf("%s", CLI_PROMPT);
 }
 
@@ -163,12 +165,28 @@ CLI_Status_t test_Handler(int argc, char *argv[])
     return CLI_OK;
 }
 
+CLI_Status_t nop_Handler(int argc, char *argv[])
+{
+    return CLI_OK;
+}
+
+CLI_Status_t err_Handler(int argc, char *argv[])
+{
+    return CLI_ERROR;
+}
+
 /* Callbacks */
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == __cli_uart->Instance) {
-        __uart_tx_pend_flag = RESET;
+        if (RingBuffer_GetSize(&__buffer) > 0) {
+            uint8_t pData[1];
+            RingBuffer_pull(&__buffer, (uint8_t*)pData);
+            HAL_UART_Transmit_IT(__cli_uart, (uint8_t*)pData, 1);
+        } else {
+            __uart_tx_pend_flag = RESET;
+        }
     }
 }
 

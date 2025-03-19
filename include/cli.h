@@ -67,6 +67,8 @@ void CLI_Print(char message[]);
 
 CLI_Status_t HelpHandler(int argc, char *argv[]);
 CLI_Status_t test_Handler(int argc, char *argv[]);
+CLI_Status_t nop_Handler(int argc, char *argv[]);
+CLI_Status_t err_Handler(int argc, char *argv[]);
 
 /* Callbacks */
 
