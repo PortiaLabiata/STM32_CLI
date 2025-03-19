@@ -1,5 +1,5 @@
 #pragma once
-#include "main.h"
+#include <stm32f1xx.h>
 
 /* Magic numbers */
 

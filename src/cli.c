@@ -139,6 +139,7 @@ void CLI_Log(char context[], char message[])
 
 void CLI_Print(char message[])
 {
+    printf("\r\n");
     printf("%s", message);
     printf("%s", CLI_PROMPT);
 }
@@ -176,6 +177,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         if (__symbol - __line < MAX_LINE_LEN && __command_rdy_flag != SET) {
             if (*__input == '\b') {
                 __symbol--;
+                CLI_Echo();
             } else if (*__input != '\n') {
                 *__symbol++ = *__input;
                 CLI_Echo();
