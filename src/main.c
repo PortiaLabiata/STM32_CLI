@@ -11,8 +11,6 @@ int main(void)
     SystemClock_Config();
     GPIO_Config();
     UART1_Config();
-    __HAL_RCC_AFIO_CLK_ENABLE();
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
     CLI_Init(&huart1);
     CLI_Log(__FILE__, "CLI ready.");

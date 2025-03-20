@@ -66,13 +66,6 @@ static CLI_Status_t CLI_ProcessCommand(void)
     return CLI_ERROR;
 }
 
-static CLI_Status_t CLI_Echo(void)
-{
-    if (RingBuffer_push(&__buffer, (uint8_t*)__input) != RB_OK)
-        return CLI_ERROR;
-    return CLI_OK;
-}
-
 static HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size)
 {
     CLI_CRITICAL();
@@ -84,28 +77,29 @@ static HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size)
 
 CLI_Status_t CLI_RUN(void)
 {
-    CLI_CRITICAL();
+    //CLI_CRITICAL();
+    /*
     unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
     if ((__uart_tx_pend_flag == RESET) && (buffer_size > 0)) {
         UART_TransmitChunk(buffer_size);
         __uart_tx_pend_flag = SET;
-        CLI_UNCRITICAL();
+    //    CLI_UNCRITICAL();
     }
-
+    */
+    CLI_CRITICAL();
     CLI_Status_t status = CLI_OK;
     if (__uart_rx_cplt_flag == SET) {
         if (__command_rdy_flag == SET) {
             status = CLI_ProcessCommand();
             __command_rdy_flag = RESET;
-            CLI_UNCRITICAL();
+    //        CLI_UNCRITICAL();
             printf("%s", CLI_PROMPT);
         }
         __uart_rx_cplt_flag = RESET;
-        CLI_UNCRITICAL();
-        HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
-
+    //    CLI_UNCRITICAL();
     }
     CLI_UNCRITICAL();
+    //CLI_UNCRITICAL();
     return status;
 }
 
@@ -122,13 +116,15 @@ int _write(int fd, uint8_t *data, int size)
     if (__uart_tx_pend_flag == RESET) {
         if (HAL_UART_Transmit_IT(__cli_uart, data, size) != HAL_OK) {
 #ifdef CLI_OVERFLOW_PENDING
-        CLI_UNCRITICAL();
         while (RingBuffer_write(&__buffer, data, size) != RB_OK) ;
+        CLI_UNCRITICAL();
 #else
         if (RingBuffer_write(&__buffer, data, size) != RB_OK) return -1;
+        CLI_UNCRITICAL();
 #endif
         } else {
             __uart_tx_pend_flag = SET;
+            CLI_UNCRITICAL();
         }
     } else {
 #ifdef CLI_OVERFLOW_PENDING
@@ -230,26 +226,30 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == __cli_uart->Instance) {
-        CLI_CRITICAL();
         if (*__input == '\r') {
+            CLI_CRITICAL();
             RingBuffer_write(&__buffer, (uint8_t*)"\r\n", 2);
             *__symbol = '\0';
             __symbol = __line;
             __command_rdy_flag = SET;
+            printf("\r\n");
+            CLI_UNCRITICAL();
         }
 
         if (__symbol - __line < MAX_LINE_LEN && __command_rdy_flag != SET) {
             if (*__input == '\b') {
                 __symbol--;
-                CLI_Echo();
+                printf("%c", *__input);
             } else if (*__input != '\n') {
                 *__symbol++ = *__input;
-                CLI_Echo();
+                printf("%c", *__input);
             }
         }
+        CLI_CRITICAL();
         __uart_rx_cplt_flag = SET;
+        CLI_UNCRITICAL();
+        HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
     }
-    CLI_UNCRITICAL();
 }
 
 #else

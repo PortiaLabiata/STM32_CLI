@@ -33,7 +33,7 @@ void SystemClock_Config(void)
 void GPIO_Config(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct;
-    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
   
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
   
