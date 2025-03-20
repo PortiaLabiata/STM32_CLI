@@ -4,9 +4,9 @@
 #define MAX_COMMANDS 64
 #define MAX_ARGUMENTS 10
 #define CHUNK_SIZE 64
-#define MAX_BUFFER_LEN 512
+#define MAX_BUFFER_LEN 32
 
 /* Preferences */
 
 #define CLI_DISPLAY_GREETING
-//#define CLI_OVERFLOW_PENDING
+#define CLI_OVERFLOW_PENDING

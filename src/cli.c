@@ -77,15 +77,6 @@ static HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size)
 
 CLI_Status_t CLI_RUN(void)
 {
-    //CLI_CRITICAL();
-    /*
-    unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
-    if ((__uart_tx_pend_flag == RESET) && (buffer_size > 0)) {
-        UART_TransmitChunk(buffer_size);
-        __uart_tx_pend_flag = SET;
-    //    CLI_UNCRITICAL();
-    }
-    */
     CLI_CRITICAL();
     CLI_Status_t status = CLI_OK;
     if (__uart_rx_cplt_flag == SET) {

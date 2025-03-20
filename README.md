@@ -2,7 +2,7 @@
 
 ## Description
 
-This is a relatively small CLI library for STM32 UART, somewhat inspired by [uShell](https://github.com/mdiepart/ushell-stm32/tree/master), but (at least in my opinion) a little better written, although this might not be the case. Written entirely using interrupt mode, unlike uShell.
+This is a relatively small CLI library for STM32 UART, somewhat inspired by [uShell](https://github.com/mdiepart/ushell-stm32/tree/master), but (at least in my opinion) a little better written, although it might not be the case. It reads and writes data entirely in interrupt mode, although commands themselves are processed in the main loop.
 
 ## Disclaimer
 
@@ -14,17 +14,33 @@ This library is untested, likely buggy and inefficient, so DO NOT use it in any 
 
 For this library to work, at least one UART interface must be initialized and it's interrupts must be enabled. It's interrupt also must call `HAL_UART_IRQHandler(&huart)` function, because UART IO is working through callback functions. It is also necessary for HAL libraries to be included.
 
-To initialize bShell, you need to call `CLI_Init(UART_HandlyTypeDef *huart)` somewhere in the `main` function or wherever you like, hypothetically. Also you need to call `CLI_RUN()` somewhere in the main loop. Right now there is not too much customization, but it is still being worked on. 
+To initialize bShell, you need to call `CLI_Init(UART_HandlyTypeDef *huart)` somewhere in the `main` function or wherever you like, hypothetically. Also you need to call `CLI_RUN()` somewhere in the main loop. Reading and writing to UART is done in interrupt mode, so there will be little to no latency. However, commands are processed inside `CLI_RUN()` function to keep callbacks as small, as possible. Because of that there might be latency in commands execution. It depends mostly on user code.
 
-To print something in console, use `CLI_Println(char message[])` and call `CLI_Log(char context[], char message[])` for logging. The message will be displayed like this:
+### Preferences
 
-    [<context>] message
+To set global library preferences, `cli_const.h` file is used. All preferences are set as macro-definitions.
 
-For example, it might be a good idea to use `CLI_Log(__FILE__, message)` to determine, from which file did the call happen.
+#### Ring buffer and UART interaction
+
+This library uses ring buffer to enable usage of interrupt mode. It's size can be set in `MAX_BUFFER_LEN` macro. Transmission is done (if necessary) in chunks of size `CHUNK_SIZE`. 
+
+It is possible (if you plan to write elaborate help instructions for example) to enable buffer overflow handling, practically using somewhat-polling mode for large texts. It is done by defining `CLI_OVERFLOW_PENDING`.
+
+#### Commands' settings
+
+It is possible to set maximum line length (`MAX_LINE_LEN`), maximum number of commands (`MAX_COMMANDS`), maximum number of arguments (`MAX_ARGUMENTS`). It is also possible to display greeting, when the device just started (`CLI_DISPLAY_GREETING`).
+
+### Printing and logging
+
+To print data, it is possible to use either `printf`, `CLI_Print(char *message)` or `CLI_Println(char *message)`. They differ only in the form of output. It is also possible to log something by calling `CLI_Log(char *context, char *message)`. It might be useful for example to use this construction:
+
+    CLI_Log(__FILE__, "Something happened here");
+
+
 
 ### Adding custom commands
 
-By default, there is only one command available: `help`. It will list all commands ant their help messages. To set this prompt, use in `cli_const.h`:
+By default, there are couple of commands available, mostly for the purposes of debugging. To list all commands, use command `help`. To set this prompt, use in `cli_const.h`:
 
     #define CLI_PROMPT <Your prompt>
     ...
