@@ -219,7 +219,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     if (huart->Instance == __cli_uart->Instance) {
         if (*__input == '\r') {
             CLI_CRITICAL();
-            RingBuffer_write(&__buffer, (uint8_t*)"\r\n", 2);
+            //RingBuffer_write(&__buffer, (uint8_t*)"\r\n", 2);
             *__symbol = '\0';
             __symbol = __line;
             __command_rdy_flag = SET;
@@ -237,7 +237,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             }
         }
         CLI_CRITICAL();
-        __uart_rx_cplt_flag = SET;
+        __uart_rx_cplt_flag = SET; // Obsolete
         CLI_UNCRITICAL();
         HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
     }
