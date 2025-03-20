@@ -1,9 +1,6 @@
 #pragma once
 #include <stm32f1xx.h>
-
-/* Magic numbers */
-
-#define MAX_BUFFER_LEN 256
+#include "cli_const.h"
 
 /* Types */
 

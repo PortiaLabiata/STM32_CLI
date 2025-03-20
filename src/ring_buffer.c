@@ -36,6 +36,7 @@ RingBuffer_Status_t RingBuffer_pull(RingBuffer_t *buff, uint8_t *pData)
 
 RingBuffer_Status_t RingBuffer_write(RingBuffer_t *buff, uint8_t *pData, unsigned int len)
 {
+    if (buff->size + len > MAX_BUFFER_LEN) return RB_OVERFLOW;
     uint8_t *point = pData;
     for (int i = len; i > 0; i--) {
         RingBuffer_Status_t status = RingBuffer_push(buff, point++);

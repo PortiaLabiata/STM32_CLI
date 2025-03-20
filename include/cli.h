@@ -41,8 +41,6 @@ typedef struct {
     char *help;
 } CLI_Command_t;
 
-/* Global variables */
-
 /* Configuration functions */
 
 CLI_Status_t CLI_Init(UART_HandleTypeDef *huart);
@@ -51,10 +49,7 @@ int _isatty(int fd);
 
 /* Processing functions */
 
-HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size);
 CLI_Status_t CLI_RUN(void);
-CLI_Status_t CLI_Echo(void);
-CLI_Status_t CLI_ProcessCommand(void);
 CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[]);
 
@@ -63,13 +58,6 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
 void CLI_Println(char message[]);
 void CLI_Log(char context[], char message[]);
 void CLI_Print(char message[]);
-
-/* Handlers */
-
-CLI_Status_t HelpHandler(int argc, char *argv[]);
-CLI_Status_t test_Handler(int argc, char *argv[]);
-CLI_Status_t nop_Handler(int argc, char *argv[]);
-CLI_Status_t err_Handler(int argc, char *argv[]);
 
 /* Callbacks */
 
