@@ -1,4 +1,9 @@
 #pragma once
+
+/**
+ * \file
+ * \brief CLI IO, callbacks, syscalls, etc.
+ */
 #include <stm32f1xx.h>
 #include <stm32f1xx_hal.h>
 #include <stm32f1xx_hal_uart.h>
@@ -19,6 +24,7 @@
 #define STDOUT_FILENO 0
 #define STDIN_FILENO 1
 #define STDERR_FILENO 2
+#define CLI_OVFL_TIMEOUT_MAX -1
 
 #ifndef CLI_PROMPT 
     #define CLI_PROMPT "> "

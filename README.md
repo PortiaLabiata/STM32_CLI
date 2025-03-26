@@ -24,7 +24,7 @@ To set global library preferences, `cli_const.h` file is used. All preferences a
 
 This library uses ring buffer to enable usage of interrupt mode. It's size can be set in `MAX_BUFFER_LEN` macro. Transmission is done (if necessary) in chunks of size `CHUNK_SIZE`. 
 
-It is possible (if you plan to write elaborate help instructions for example) to enable buffer overflow handling, practically using somewhat-polling mode for large texts. It is done by defining `CLI_OVERFLOW_PENDING`.
+It is possible (if you plan to write elaborate help instructions for example) to enable buffer overflow handling, practically using somewhat-polling mode for large texts. It is done by defining `CLI_OVERFLOW_PENDING`. It is possible to set timeout to this blocking section by defining `CLI_OVFL_PEND_TIMEOUT` (in SysTick ticks). If set to `CLI_OVFL_TIMEOUT_MAX`, will wait indefinetly.
 
 #### Commands' settings
 
