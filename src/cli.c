@@ -3,29 +3,29 @@
 #ifdef USE_CLI
 
 /* Global variables */
-static UART_HandleTypeDef *__cli_uart;
-static RingBuffer_t __buffer;
+static UART_HandleTypeDef *_cli_uart;
+static RingBuffer_t _buffer;
 
-static uint8_t __input[1];
-static uint8_t __line[MAX_LINE_LEN];
-static uint8_t *__symbol;
+static uint8_t _input[1];
+static uint8_t _line[MAX_LINE_LEN];
+static uint8_t *_symbol;
 
-static uint8_t __uart_rx_cplt_flag = RESET;
-static uint8_t __command_rdy_flag = RESET;
-static uint8_t __uart_tx_pend_flag = RESET;
+static uint8_t _uart_rx_cplt_flag = RESET;
+static uint8_t _command_rdy_flag = RESET;
+static uint8_t _uart_tx_pend_flag = RESET;
 
-static CLI_Command_t __commands[MAX_COMMANDS];
-static int __num_commands = 0;
-uint8_t __pData[CHUNK_SIZE];
+static CLI_Command_t _commands[MAX_COMMANDS];
+static int _num_commands = 0;
+uint8_t _pData[CHUNK_SIZE];
 
 #define MIN(a, b) ((a < b) ? a : b)
 
 /* Handlers */
 
-static CLI_Status_t HelpHandler(int argc, char *argv[])
+static CLI_Status_t help_Handler(int argc, char *argv[])
 {
-    for (int i = 0; i < __num_commands; i++) {
-        printf("%s\t%s\n", __commands[i].command, __commands[i].help);
+    for (int i = 0; i < _num_commands; i++) {
+        printf("%s\t%s\n", _commands[i].command, _commands[i].help);
     }
     return CLI_OK;
 }
@@ -52,14 +52,17 @@ static CLI_Status_t err_Handler(int argc, char *argv[])
 
 static CLI_Status_t CLI_ProcessCommand(void)
 {
+    /*
+        TODO: switch from strtok to strtok_r
+    */
     int argc = 0;
     char *argv[MAX_ARGUMENTS];
-    argv[argc++] = strtok((char*)__line, " ");
+    argv[argc++] = strtok((char*)_line, " ");
     while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
 
-    for (int i = 0; i < __num_commands; i++) {
-        if (strcmp(argv[0], __commands[i].command) == 0) {
-            return __commands[i].func(argc, argv);
+    for (int i = 0; i < _num_commands; i++) {
+        if (strcmp(argv[0], _commands[i].command) == 0) {
+            return _commands[i].func(argc, argv);
         }
     }
     printf("Error: command not found!\n");
@@ -69,28 +72,25 @@ static CLI_Status_t CLI_ProcessCommand(void)
 static HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size)
 {
     CLI_CRITICAL();
-    RingBuffer_read(&__buffer, __pData, MIN(CHUNK_SIZE, buffer_size));
-    __uart_tx_pend_flag = SET;
+    RingBuffer_read(&_buffer, _pData, MIN(CHUNK_SIZE, buffer_size));
+    _uart_tx_pend_flag = SET;
     CLI_UNCRITICAL();
-    return HAL_UART_Transmit_IT(__cli_uart, __pData, MIN(CHUNK_SIZE, buffer_size));
+    return HAL_UART_Transmit_IT(_cli_uart, _pData, MIN(CHUNK_SIZE, buffer_size));
 }
 
 CLI_Status_t CLI_RUN(void)
 {
     CLI_CRITICAL();
     CLI_Status_t status = CLI_OK;
-    if (__uart_rx_cplt_flag == SET) {
-        if (__command_rdy_flag == SET) {
+    if (_uart_rx_cplt_flag == SET) {
+        if (_command_rdy_flag == SET) {
             status = CLI_ProcessCommand();
-            __command_rdy_flag = RESET;
-    //        CLI_UNCRITICAL();
+            _command_rdy_flag = RESET;
             printf("%s", CLI_PROMPT);
         }
-        __uart_rx_cplt_flag = RESET;
-    //    CLI_UNCRITICAL();
+        _uart_rx_cplt_flag = RESET;
     }
     CLI_UNCRITICAL();
-    //CLI_UNCRITICAL();
     return status;
 }
 
@@ -104,25 +104,26 @@ int _write(int fd, uint8_t *data, int size)
 
     CLI_CRITICAL();
 
-    if (__uart_tx_pend_flag == RESET) {
-        if (HAL_UART_Transmit_IT(__cli_uart, data, size) != HAL_OK) {
+    if (_uart_tx_pend_flag == RESET) {
+        if (HAL_UART_Transmit_IT(_cli_uart, data, size) != HAL_OK) {
 #ifdef CLI_OVERFLOW_PENDING
-        while (RingBuffer_write(&__buffer, data, size) != RB_OK) ;
-        CLI_UNCRITICAL();
+        CLI_UNCRITICAL(); // Should it be here?
+        while (RingBuffer_write(&_buffer, data, size) != RB_OK) ;
+        // Or here?
 #else
-        if (RingBuffer_write(&__buffer, data, size) != RB_OK) return -1;
+        if (RingBuffer_write(&_buffer, data, size) != RB_OK) return -1;
         CLI_UNCRITICAL();
 #endif
         } else {
-            __uart_tx_pend_flag = SET;
+            _uart_tx_pend_flag = SET;
             CLI_UNCRITICAL();
         }
     } else {
 #ifdef CLI_OVERFLOW_PENDING
         CLI_UNCRITICAL();
-        while (RingBuffer_write(&__buffer, data, size) != RB_OK) ;
+        while (RingBuffer_write(&_buffer, data, size) != RB_OK) ;
 #else
-        if (RingBuffer_write(&__buffer, data, size) != RB_OK) return -1;
+        if (RingBuffer_write(&_buffer, data, size) != RB_OK) return -1;
 #endif        
     }
 
@@ -147,12 +148,12 @@ int _isatty(int fd)
 
 CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 {
-    __cli_uart = huart;
-    __symbol = __line;
-    RingBuffer_Init(&__buffer);
+    _cli_uart = huart;
+    _symbol = _line;
+    RingBuffer_Init(&_buffer);
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    CLI_AddCommand("help", &HelpHandler, "Prints this message.");
+    CLI_AddCommand("help", &help_Handler, "Prints this message.");
     CLI_AddCommand("test", &test_Handler, "Simply prints it's arguments");
     CLI_AddCommand("nop", &nop_Handler, "Does absolutely nothing.");
     CLI_AddCommand("err", &err_Handler, "Returns CLI_ERROR, so should cause error.");
@@ -161,16 +162,16 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 #endif
     printf(CLI_PROMPT);
 
-    HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
+    HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
     return CLI_OK;
 }
 
 CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[])
 {
-    __commands[__num_commands].command = cmd;
-    __commands[__num_commands].func = func;
-    __commands[__num_commands++].help = help;
+    _commands[_num_commands].command = cmd;
+    _commands[_num_commands].func = func;
+    _commands[_num_commands++].help = help;
     return CLI_OK;
 }
 
@@ -201,14 +202,14 @@ void CLI_Print(char message[])
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == __cli_uart->Instance) {
+    if (huart->Instance == _cli_uart->Instance) {
         CLI_CRITICAL();
 
-        unsigned int buffer_size = RingBuffer_GetSize(&__buffer);
+        unsigned int buffer_size = RingBuffer_GetSize(&_buffer);
         if (buffer_size > 0) {
             UART_TransmitChunk(buffer_size);
         } else {
-            __uart_tx_pend_flag = RESET;
+            _uart_tx_pend_flag = RESET;
         }
         CLI_UNCRITICAL();
     }
@@ -216,30 +217,30 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == __cli_uart->Instance) {
-        if (*__input == '\r') {
+    if (huart->Instance == _cli_uart->Instance) {
+        if (*_input == '\r') {
             CLI_CRITICAL();
-            //RingBuffer_write(&__buffer, (uint8_t*)"\r\n", 2);
-            *__symbol = '\0';
-            __symbol = __line;
-            __command_rdy_flag = SET;
+            //RingBuffer_write(&_buffer, (uint8_t*)"\r\n", 2);
+            *_symbol = '\0';
+            _symbol = _line;
+            _command_rdy_flag = SET;
             printf("\r\n");
             CLI_UNCRITICAL();
         }
 
-        if (__symbol - __line < MAX_LINE_LEN && __command_rdy_flag != SET) {
-            if (*__input == '\b') {
-                __symbol--;
-                printf("%c", *__input);
-            } else if (*__input != '\n') {
-                *__symbol++ = *__input;
-                printf("%c", *__input);
+        if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
+            if (*_input == '\b' && _symbol >= _line) {
+                _symbol--;
+                printf("%c", *_input);
+            } else if (*_input != '\n') {
+                *_symbol++ = *_input;
+                printf("%c", *_input);
             }
         }
         CLI_CRITICAL();
-        __uart_rx_cplt_flag = SET; // Obsolete
+        _uart_rx_cplt_flag = SET; // Obsolete
         CLI_UNCRITICAL();
-        HAL_UART_Receive_IT(__cli_uart, (uint8_t*)__input, 1);
+        HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
     }
 }
 
