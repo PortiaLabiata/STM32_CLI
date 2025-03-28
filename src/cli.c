@@ -10,7 +10,7 @@ add -D USE_CLI to build flags. */
 //static UART_HandleTypeDef *_cli_uart; // HAL UART object used for IO
 //static RingBuffer_t _buffer; // Buffer used for IO
 
-static uint8_t _input[1]; // Current symbol, recieved from UART
+//static uint8_t _input[1]; // Current symbol, recieved from UART
 static uint8_t _line[MAX_LINE_LEN]; // Current line, recieved from UART. Resets every \r
 static uint8_t *_symbol;
 
@@ -232,7 +232,7 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
 #endif
     printf(CLI_PROMPT);
 
-    HAL_UART_Receive_IT(ctx->uart.huart, (uint8_t*)_input, 1);
+    HAL_UART_Receive_IT(ctx->uart.huart, (uint8_t*)&_ctx->ribbon.input, 1);
     return CLI_OK;
 }
 
@@ -340,12 +340,12 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _ctx->uart.huart->Instance) {
-        if (*_input == '\n') {
-            HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)_input, 1);
+        if (_ctx->ribbon.input == '\n') {
+            HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)&_ctx->ribbon.input, 1);
             return;
         }
 
-        if (*_input == '\r') {
+        if (_ctx->ribbon.input == '\r') {
 
             CLI_CRITICAL();
             *_symbol = '\0';
@@ -355,17 +355,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             CLI_UNCRITICAL();
             /* It is impossible for \n to arise behind this point */
         } else if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
-            if (*_input == '\b') {
+            if (_ctx->ribbon.input == '\b') {
                 if (_symbol > _line) {
                     _symbol--;
                     printf("\b");
                 }
             } else {
-                *_symbol++ = *_input;
-                printf("%c", *_input);
+                *_symbol++ = _ctx->ribbon.input;
+                printf("%c", _ctx->ribbon.input);
             }
         }
-        HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)_input, 1);
+        HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)&_ctx->ribbon.input, 1);
     }
 }
 
