@@ -52,6 +52,7 @@ typedef struct {
 } CLI_Command_t;
 
 typedef struct {
+    CLI_State_t state;
     struct {
         uint8_t line[MAX_LINE_LEN];
         uint8_t *cursor_position;
@@ -70,6 +71,13 @@ typedef struct {
         bool tx_pend;
     } uart;
 } CLI_Context_t;
+
+typedef enum {
+    CLI_READY,
+    CLI_TRANSMITTING,
+    CLI_RECIEVING,
+    CLI_PROCESSING
+} CLI_State_t;
 
 /* Configuration functions */
 
