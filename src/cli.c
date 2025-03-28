@@ -14,9 +14,7 @@ static uint8_t _input[1]; // Current symbol, recieved from UART
 static uint8_t _line[MAX_LINE_LEN]; // Current line, recieved from UART. Resets every \r
 static uint8_t *_symbol;
 
-/* Flags, ensure that all transmit operations are atomic. 
-_uart_tx_pend_flag might be obsolete? */
-static uint8_t _uart_rx_cplt_flag = RESET;
+/* Flags, ensure that all transmit operations are in critical sections */
 static uint8_t _command_rdy_flag = RESET;
 
 /*
@@ -114,13 +112,10 @@ CLI_Status_t CLI_RUN(void)
 {
     CLI_CRITICAL();
     CLI_Status_t status = CLI_OK;
-    if (_uart_rx_cplt_flag == SET) {
-        if (_command_rdy_flag == SET) {
-            status = CLI_ProcessCommand();
-            _command_rdy_flag = RESET;
-            printf("%s", CLI_PROMPT);
-        }
-        _uart_rx_cplt_flag = RESET;
+    if (_command_rdy_flag == SET) {
+        status = CLI_ProcessCommand();
+        _command_rdy_flag = RESET;
+        printf("%s", CLI_PROMPT);
     }
     CLI_UNCRITICAL();
     return status;
@@ -290,6 +285,11 @@ This callback will restart the transmission if needed (i. e. if the buffer is no
 If it is empty, then it will set the flag to RESET.
 */
 
+/**
+ * \brief HAL UART Callback. Must not be rewritten, so UART you chose for CLI will be
+ * unavailable for all other uses.
+ * \param[in] huart Pointer to HAL UART object.
+ */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _cli_uart->Instance) {
@@ -305,6 +305,11 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
     }
 }
 
+/**
+ * \brief HAL UART Callback. Must not be rewritten, so UART you chose for CLI will be
+ * unavailable for all other uses.
+ * \param[in] huart Pointer to HAL UART object.
+ */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _cli_uart->Instance) {
@@ -316,19 +321,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             _command_rdy_flag = SET;
             printf("\r\n");
             CLI_UNCRITICAL();
-        }
-
-        if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
+            /* It is impossible for \n to arise behind this point */
+        } else if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
             if (*_input == '\b' && _symbol > _line) {
                 _symbol--;
                 printf("\b");
-            } else if (*_input != '\n') {
+            } else {
                 *_symbol++ = *_input;
                 printf("%c", *_input);
             }
         }
+
+
+
         CLI_CRITICAL();
-        _uart_rx_cplt_flag = SET; // Obsolete
         CLI_UNCRITICAL();
         HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
     }
