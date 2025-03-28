@@ -319,7 +319,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             *_symbol = '\0';
             _symbol = _line;
             _command_rdy_flag = SET;
-            printf("\r\n");
+            printf("\n");
             CLI_UNCRITICAL();
             /* It is impossible for \n to arise behind this point */
         } else if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
@@ -331,11 +331,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                 printf("%c", *_input);
             }
         }
-
-
-
-        CLI_CRITICAL();
-        CLI_UNCRITICAL();
         HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
     }
 }
