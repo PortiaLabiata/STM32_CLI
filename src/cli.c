@@ -26,9 +26,9 @@ static uint8_t _uart_tx_pend_flag = RESET;
 /* This flag indicates, that a command was executed, so CLI needs to print prompt */
 static uint8_t _cli_command_exec_flag = RESET;
 
-static CLI_Command_t _commands[MAX_COMMANDS];
-static int _num_commands = 0;
-uint8_t _pData[CHUNK_SIZE];
+//static CLI_Command_t _commands[MAX_COMMANDS];
+//static int _num_commands = 0;
+//uint8_t _pData[CHUNK_SIZE];
 static CLI_Context_t *_ctx;
 
 #define MIN(a, b) ((a < b) ? a : b)
@@ -40,8 +40,8 @@ use CLI_AddCommand, it is unwise to change this file. */
 
 static CLI_Status_t help_Handler(int argc, char *argv[])
 {
-    for (int i = 0; i < _num_commands; i++) {
-        printf("%s\t%s\n", _commands[i].command, _commands[i].help);
+    for (int i = 0; i < _ctx->cmd.num_commands; i++) {
+        printf("%s\t%s\n", _ctx->cmd.commands[i].command, _ctx->cmd.commands[i].help);
     }
     return CLI_OK;
 }
@@ -81,9 +81,11 @@ static CLI_Status_t CLI_ProcessCommand(void)
     argv[argc++] = strtok((char*)_ctx->ribbon.line, " ");
     while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
 
-    for (int i = 0; i < _num_commands; i++) {
-        if (strcmp(argv[0], _commands[i].command) == 0) {
-            return _commands[i].func(argc, argv);
+    CLI_Command_t curr_cmd;
+    for (int i = 0; i < _ctx->cmd.num_commands; i++) {
+        curr_cmd = _ctx->cmd.commands[i];
+        if (strcmp(argv[0], curr_cmd.command) == 0) {
+            return curr_cmd.func(argc, argv);
         }
     }
     printf("Error: command not found!\n");
@@ -98,10 +100,10 @@ static CLI_Status_t CLI_ProcessCommand(void)
 static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buffer_size)
 {
     CLI_CRITICAL();
-    RingBuffer_read(&ctx->uart.buffer, _pData, MIN(CHUNK_SIZE, buffer_size));
+    RingBuffer_read(&ctx->uart.buffer, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
     _uart_tx_pend_flag = SET;
     CLI_UNCRITICAL();
-    return HAL_UART_Transmit_IT(ctx->uart.huart, _pData, MIN(CHUNK_SIZE, buffer_size));
+    return HAL_UART_Transmit_IT(ctx->uart.huart, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
 }
 
 /**
@@ -220,6 +222,7 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
     ctx->uart.huart = huart;
     ctx->ribbon.cursor_position = _ctx->ribbon.line;
     RingBuffer_Init(&ctx->uart.buffer);
+    ctx->cmd.num_commands = 0;
 
     setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -246,10 +249,12 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
 CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[])
 {
-    if (_num_commands >= MAX_COMMANDS) return CLI_ERROR;
-    _commands[_num_commands].command = cmd;
-    _commands[_num_commands].func = func;
-    _commands[_num_commands++].help = help;
+    if (_ctx->cmd.num_commands >= MAX_COMMANDS) return CLI_ERROR;
+    CLI_Command_t *curr_cmd = &_ctx->cmd.commands[_ctx->cmd.num_commands];
+    curr_cmd->command = cmd;
+    curr_cmd->func = func;
+    curr_cmd->help = help;
+    _ctx->cmd.num_commands++;
     return CLI_OK;
 }
 
