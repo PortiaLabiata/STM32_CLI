@@ -18,6 +18,7 @@
 
 #define CLI_CRITICAL() HAL_NVIC_DisableIRQ(USART1_IRQn)
 #define CLI_UNCRITICAL() HAL_NVIC_EnableIRQ(USART1_IRQn)
+#define PRINT_PROMPT() printf("%s\n", CLI_PROMPT)
 
 /* Magic numbers */
 

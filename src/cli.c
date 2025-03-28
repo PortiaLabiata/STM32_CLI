@@ -21,8 +21,10 @@ static uint8_t _command_rdy_flag = RESET;
 This specific flag is set when a transmission of a long output (e. g. command
 output or log line) is in progress and should not be interferred with.
 */
-
 static uint8_t _uart_tx_pend_flag = RESET;
+
+/* This flag indicates, that a command was executed, so CLI needs to print prompt */
+static uint8_t _cli_command_exec_flag = RESET;
 
 static CLI_Command_t _commands[MAX_COMMANDS];
 static int _num_commands = 0;
@@ -72,6 +74,7 @@ static CLI_Status_t CLI_ProcessCommand(void)
     /*
         TODO: switch from strtok to strtok_r
     */
+    _cli_command_exec_flag = SET;
     int argc = 0;
     char *argv[MAX_ARGUMENTS];
     argv[argc++] = strtok((char*)_line, " ");
@@ -115,7 +118,9 @@ CLI_Status_t CLI_RUN(void)
     if (_command_rdy_flag == SET) {
         _command_rdy_flag = RESET;
         status = CLI_ProcessCommand();
-        printf("%s", CLI_PROMPT);
+    } if (_cli_command_exec_flag == SET) {
+        _cli_command_exec_flag = RESET;
+        PRINT_PROMPT();
     }
     CLI_UNCRITICAL();
     return status;
@@ -255,7 +260,7 @@ void CLI_Println(char message[])
 {
     printf("\n");
     printf("%s\n", message);
-    printf("%s", CLI_PROMPT);
+    _cli_command_exec_flag = SET;
 }
 
 /**
@@ -267,7 +272,7 @@ void CLI_Log(char context[], char message[])
 {
     printf("\n");
     printf("[%s] %s\n", context, message);
-    printf("%s", CLI_PROMPT);
+    _cli_command_exec_flag = SET;
 }
 
 /**
@@ -278,7 +283,7 @@ void CLI_Print(char message[])
 {
     printf("\r\n");
     printf("%s", message);
-    printf("%s", CLI_PROMPT);
+    _cli_command_exec_flag = SET;
 }
 
 char *CLI_Status2Str(CLI_Status_t status)
@@ -336,7 +341,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
             return;
         }
-        
+
         if (*_input == '\r') {
 
             CLI_CRITICAL();
