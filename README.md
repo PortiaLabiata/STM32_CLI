@@ -51,3 +51,5 @@ To add custom commands, call:
     CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]));
 
 where `char cmd[]` is command's name and `func` is the handler. The handler takes two arguments: `int argc` (number of symbolic arguments) and `char *argv[]` (arguments themselves), kind of like `main` function in desktop C. Internal logic of commands, including argument processing, is entirely up to you.
+
+    > Warning! Checking if number of arguments is consistent with your logic is up to you also, so that it's possible to implement commands with variable number of arguments in the user side.  
