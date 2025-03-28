@@ -11,8 +11,8 @@ add -D USE_CLI to build flags. */
 //static RingBuffer_t _buffer; // Buffer used for IO
 
 //static uint8_t _input[1]; // Current symbol, recieved from UART
-static uint8_t _line[MAX_LINE_LEN]; // Current line, recieved from UART. Resets every \r
-static uint8_t *_symbol;
+//static uint8_t _line[MAX_LINE_LEN]; // Current line, recieved from UART. Resets every \r
+//static uint8_t *_symbol;
 
 /* Flags, ensure that all transmit operations are in critical sections */
 static uint8_t _command_rdy_flag = RESET;
@@ -78,7 +78,7 @@ static CLI_Status_t CLI_ProcessCommand(void)
     _cli_command_exec_flag = SET;
     int argc = 0;
     char *argv[MAX_ARGUMENTS];
-    argv[argc++] = strtok((char*)_line, " ");
+    argv[argc++] = strtok((char*)_ctx->ribbon.line, " ");
     while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
 
     for (int i = 0; i < _num_commands; i++) {
@@ -216,10 +216,10 @@ int _isatty(int fd)
 CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
 {
     if (HAL_UART_GetState(huart) != HAL_UART_STATE_READY) return CLI_ERROR;
-    ctx->uart.huart = huart;
-    _symbol = _line;
-    RingBuffer_Init(&ctx->uart.buffer);
     _ctx = ctx;
+    ctx->uart.huart = huart;
+    ctx->ribbon.cursor_position = _ctx->ribbon.line;
+    RingBuffer_Init(&ctx->uart.buffer);
 
     setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -348,20 +348,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         if (_ctx->ribbon.input == '\r') {
 
             CLI_CRITICAL();
-            *_symbol = '\0';
-            _symbol = _line;
+            *_ctx->ribbon.cursor_position = '\0';
+            _ctx->ribbon.cursor_position = _ctx->ribbon.line;
             _command_rdy_flag = SET;
             printf("\n");
             CLI_UNCRITICAL();
             /* It is impossible for \n to arise behind this point */
-        } else if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
+        } else if (_ctx->ribbon.cursor_position - _ctx->ribbon.line < MAX_LINE_LEN && _command_rdy_flag != SET) {
             if (_ctx->ribbon.input == '\b') {
-                if (_symbol > _line) {
-                    _symbol--;
+                if (_ctx->ribbon.cursor_position > _ctx->ribbon.line) {
+                    _ctx->ribbon.cursor_position--;
                     printf("\b");
                 }
             } else {
-                *_symbol++ = _ctx->ribbon.input;
+                *_ctx->ribbon.cursor_position++ = _ctx->ribbon.input;
                 printf("%c", _ctx->ribbon.input);
             }
         }
