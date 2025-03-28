@@ -17,7 +17,7 @@ int main(void)
     CLI_Log(__FILE__, "CLI ready.");
 
     while (1) {
-        if ((status = CLI_RUN()) != CLI_OK) {
+        if ((status = CLI_RUN(&ctx)) != CLI_OK) {
             CLI_Log(__func__, CLI_Status2Str(status));
         }
     }

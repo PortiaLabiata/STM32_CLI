@@ -79,8 +79,8 @@ int _isatty(int fd);
 
 /* Processing functions */
 
-CLI_Status_t CLI_RUN(void);
-CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
+CLI_Status_t CLI_RUN(CLI_Context_t *ctx);
+CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[]);
 
 /* HIgh-level IO */

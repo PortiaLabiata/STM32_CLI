@@ -58,7 +58,7 @@ static CLI_Status_t err_Handler(int argc, char *argv[])
  * \brief Process CLI command, that is stored in _line array.
  * \retval returns command execution status and CLI_ERROR if command does not exist.
  */
-static CLI_Status_t CLI_ProcessCommand(void)
+static CLI_Status_t CLI_ProcessCommand(CLI_Context_t *ctx)
 {
     /*
         TODO: switch from strtok to strtok_r
@@ -66,12 +66,12 @@ static CLI_Status_t CLI_ProcessCommand(void)
     _cli_command_exec_flag = SET;
     int argc = 0;
     char *argv[MAX_ARGUMENTS];
-    argv[argc++] = strtok((char*)_ctx->ribbon.line, " ");
+    argv[argc++] = strtok((char*)ctx->ribbon.line, " ");
     while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
 
     CLI_Command_t curr_cmd;
-    for (int i = 0; i < _ctx->cmd.num_commands; i++) {
-        curr_cmd = _ctx->cmd.commands[i];
+    for (int i = 0; i < ctx->cmd.num_commands; i++) {
+        curr_cmd = ctx->cmd.commands[i];
         if (strcmp(argv[0], curr_cmd.command) == 0) {
             return curr_cmd.func(argc, argv);
         }
@@ -102,13 +102,13 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
  *  that is, if command was recieved (that is, if \r was encountered). Also prints
  *  prompt. Atomic.
  */
-CLI_Status_t CLI_RUN(void)
+CLI_Status_t CLI_RUN(CLI_Context_t *ctx)
 {
     CLI_CRITICAL();
     CLI_Status_t status = CLI_OK;
     if (_command_rdy_flag == SET) {
         _command_rdy_flag = RESET;
-        status = CLI_ProcessCommand();
+        status = CLI_ProcessCommand(ctx);
     } if (_cli_command_exec_flag == SET) {
         _cli_command_exec_flag = RESET;
         PRINT_PROMPT();
@@ -234,15 +234,15 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
  * \param[in] help Help text.
  * \retval CLI_ERROR if commands limit exceeded, CLI_OK otherwise.
  */
-CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
+CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[])
 {
-    if (_ctx->cmd.num_commands >= MAX_COMMANDS) return CLI_ERROR;
-    CLI_Command_t *curr_cmd = &_ctx->cmd.commands[_ctx->cmd.num_commands];
+    if (ctx->cmd.num_commands >= MAX_COMMANDS) return CLI_ERROR;
+    CLI_Command_t *curr_cmd = &ctx->cmd.commands[ctx->cmd.num_commands];
     curr_cmd->command = cmd;
     curr_cmd->func = func;
     curr_cmd->help = help;
-    _ctx->cmd.num_commands++;
+    ctx->cmd.num_commands++;
     return CLI_OK;
 }
 
