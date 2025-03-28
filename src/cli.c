@@ -323,9 +323,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             CLI_UNCRITICAL();
             /* It is impossible for \n to arise behind this point */
         } else if (_symbol - _line < MAX_LINE_LEN && _command_rdy_flag != SET) {
-            if (*_input == '\b' && _symbol > _line) {
-                _symbol--;
-                printf("\b");
+            if (*_input == '\b') {
+                if (_symbol > _line) {
+                    _symbol--;
+                    printf("\b");
+                }
             } else {
                 *_symbol++ = *_input;
                 printf("%c", *_input);
