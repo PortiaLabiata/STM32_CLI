@@ -113,8 +113,8 @@ CLI_Status_t CLI_RUN(void)
     CLI_CRITICAL();
     CLI_Status_t status = CLI_OK;
     if (_command_rdy_flag == SET) {
-        status = CLI_ProcessCommand();
         _command_rdy_flag = RESET;
+        status = CLI_ProcessCommand();
         printf("%s", CLI_PROMPT);
     }
     CLI_UNCRITICAL();
@@ -144,12 +144,15 @@ int _write(int fd, uint8_t *data, int size)
     }
 
     CLI_CRITICAL();
-
     if (_uart_tx_pend_flag == RESET) { // Transmission not in progress
-        CLI_UNCRITICAL();
+
         if (HAL_UART_Transmit_IT(_cli_uart, data, size) != HAL_OK) { // UART busy
 #ifdef CLI_OVERFLOW_PENDING
+
+        CLI_CRITICAL();
         int ms_start = HAL_GetTick();
+        CLI_UNCRITICAL();
+
         while (RingBuffer_write(&_buffer, data, size) != RB_OK) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
                  HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
@@ -161,14 +164,14 @@ int _write(int fd, uint8_t *data, int size)
         CLI_UNCRITICAL();
 #endif
         } else { // UART not busy
-            CLI_CRITICAL();
             _uart_tx_pend_flag = SET;
             CLI_UNCRITICAL();
         }
     } else { // Transmission in progress
 #ifdef CLI_OVERFLOW_PENDING
-        CLI_UNCRITICAL();
         int ms_start = HAL_GetTick();
+        CLI_UNCRITICAL();
+
         while (RingBuffer_write(&_buffer, data, size) != RB_OK) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
                  HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
@@ -250,7 +253,7 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
  */
 void CLI_Println(char message[])
 {
-    printf("\r\n");
+    printf("\n");
     printf("%s\n", message);
     printf("%s", CLI_PROMPT);
 }
@@ -262,8 +265,8 @@ void CLI_Println(char message[])
  */
 void CLI_Log(char context[], char message[])
 {
-    printf("\r\n");
-    printf("[%s] %s\r\n", context, message);
+    printf("\n");
+    printf("[%s] %s\n", context, message);
     printf("%s", CLI_PROMPT);
 }
 
@@ -329,9 +332,14 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _cli_uart->Instance) {
+        if (*_input == '\n') {
+            HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
+            return;
+        }
+        
         if (*_input == '\r') {
+
             CLI_CRITICAL();
-            //RingBuffer_write(&_buffer, (uint8_t*)"\r\n", 2);
             *_symbol = '\0';
             _symbol = _line;
             _command_rdy_flag = SET;

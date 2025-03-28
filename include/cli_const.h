@@ -9,9 +9,9 @@
 #define MAX_COMMANDS 64
 #define MAX_ARGUMENTS 10
 #define CHUNK_SIZE 64
-#define MAX_BUFFER_LEN 32
+#define MAX_BUFFER_LEN 128
 
-#define CLI_OVFL_PEND_TIMEOUT 100 // ticks
+#define CLI_OVFL_PEND_TIMEOUT CLI_OVFL_TIMEOUT_MAX // ticks
 
 /* Preferences */
 
