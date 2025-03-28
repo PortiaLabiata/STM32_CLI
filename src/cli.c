@@ -6,14 +6,6 @@ add -D USE_CLI to build flags. */
 
 #ifdef USE_CLI
 
-/* Global variables */
-//static UART_HandleTypeDef *_cli_uart; // HAL UART object used for IO
-//static RingBuffer_t _buffer; // Buffer used for IO
-
-//static uint8_t _input[1]; // Current symbol, recieved from UART
-//static uint8_t _line[MAX_LINE_LEN]; // Current line, recieved from UART. Resets every \r
-//static uint8_t *_symbol;
-
 /* Flags, ensure that all transmit operations are in critical sections */
 static uint8_t _command_rdy_flag = RESET;
 
@@ -25,10 +17,6 @@ static uint8_t _uart_tx_pend_flag = RESET;
 
 /* This flag indicates, that a command was executed, so CLI needs to print prompt */
 static uint8_t _cli_command_exec_flag = RESET;
-
-//static CLI_Command_t _commands[MAX_COMMANDS];
-//static int _num_commands = 0;
-//uint8_t _pData[CHUNK_SIZE];
 static CLI_Context_t *_ctx;
 
 #define MIN(a, b) ((a < b) ? a : b)
