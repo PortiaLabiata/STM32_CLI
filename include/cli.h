@@ -38,7 +38,8 @@
 
 typedef enum {
     CLI_OK,
-    CLI_ERROR
+    CLI_ERROR,
+    CLI_ERROR_ARG
 } CLI_Status_t;
 
 typedef struct {
@@ -64,6 +65,7 @@ CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *arg
 void CLI_Println(char message[]);
 void CLI_Log(char context[], char message[]);
 void CLI_Print(char message[]);
+char *CLI_Status2Str(CLI_Status_t status);
 
 /* Callbacks */
 

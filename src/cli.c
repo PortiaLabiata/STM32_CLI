@@ -278,6 +278,20 @@ void CLI_Print(char message[])
     printf("%s", CLI_PROMPT);
 }
 
+char *CLI_Status2Str(CLI_Status_t status)
+{
+    switch (status) {
+        case CLI_OK:
+            return "CLI_OK";
+        case CLI_ERROR:
+            return "CLI_ERROR";
+        case CLI_ERROR_ARG:
+            return "CLI_ERROR_ARG";
+        default:
+            return "Unknown status";
+    }
+}
+
 /* Callbacks */
 
 /*
