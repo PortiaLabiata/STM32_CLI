@@ -11,8 +11,9 @@ int main(void)
     SystemClock_Config();
     GPIO_Config();
     UART1_Config();
+    CLI_Context_t ctx;
 
-    CLI_Init(&huart1);
+    CLI_Init(&ctx, &huart1);
     CLI_Log(__FILE__, "CLI ready.");
 
     while (1) {

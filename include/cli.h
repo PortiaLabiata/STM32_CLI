@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "ring_buffer.h"
 #include "cli_const.h"
@@ -50,9 +51,29 @@ typedef struct {
     char *help;
 } CLI_Command_t;
 
+typedef struct {
+    struct {
+        uint8_t line[MAX_LINE_LEN];
+        uint8_t *cursor_position;
+        uint8_t input;
+    } ribbon;
+
+    struct {
+        CLI_Command_t commands[MAX_COMMANDS];
+        uint32_t num_commands;
+    } cmd;
+
+    struct {
+        UART_HandleTypeDef *huart;
+        RingBuffer_t buffer;
+        uint8_t chunk[CHUNK_SIZE];
+        bool tx_pend;
+    } uart;
+} CLI_Context_t;
+
 /* Configuration functions */
 
-CLI_Status_t CLI_Init(UART_HandleTypeDef *huart);
+CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart);
 int _write(int fd, uint8_t *data, int size);
 int _isatty(int fd);
 

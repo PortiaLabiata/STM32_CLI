@@ -29,6 +29,7 @@ static uint8_t _cli_command_exec_flag = RESET;
 static CLI_Command_t _commands[MAX_COMMANDS];
 static int _num_commands = 0;
 uint8_t _pData[CHUNK_SIZE];
+static CLI_Context_t *_ctx;
 
 #define MIN(a, b) ((a < b) ? a : b)
 
@@ -94,13 +95,13 @@ static CLI_Status_t CLI_ProcessCommand(void)
  * \param[in] buffer_size current size of the buffer.
  * \retval HAL transmission status.
  */
-static HAL_StatusTypeDef UART_TransmitChunk(unsigned int buffer_size)
+static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buffer_size)
 {
     CLI_CRITICAL();
     RingBuffer_read(&_buffer, _pData, MIN(CHUNK_SIZE, buffer_size));
     _uart_tx_pend_flag = SET;
     CLI_UNCRITICAL();
-    return HAL_UART_Transmit_IT(_cli_uart, _pData, MIN(CHUNK_SIZE, buffer_size));
+    return HAL_UART_Transmit_IT(ctx->uart.huart, _pData, MIN(CHUNK_SIZE, buffer_size));
 }
 
 /**
@@ -151,7 +152,7 @@ int _write(int fd, uint8_t *data, int size)
     CLI_CRITICAL();
     if (_uart_tx_pend_flag == RESET) { // Transmission not in progress
 
-        if (HAL_UART_Transmit_IT(_cli_uart, data, size) != HAL_OK) { // UART busy
+        if (HAL_UART_Transmit_IT(_ctx->uart.huart, data, size) != HAL_OK) { // UART busy
 #ifdef CLI_OVERFLOW_PENDING
 
         CLI_CRITICAL();
@@ -212,12 +213,14 @@ int _isatty(int fd)
  * \param[in] huart HAL UART handler, must be configured with HAL_UART_Config
  * \retval `CLI_OK` if UART initialized, `CLI_ERROR` otherwise.
  */
-CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
+CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
 {
     if (HAL_UART_GetState(huart) != HAL_UART_STATE_READY) return CLI_ERROR;
-    _cli_uart = huart;
+    ctx->uart.huart = huart;
     _symbol = _line;
     RingBuffer_Init(&_buffer);
+    _ctx = ctx;
+
     setvbuf(stdout, NULL, _IONBF, 0);
 
     CLI_AddCommand("help", &help_Handler, "Prints this message.");
@@ -229,7 +232,7 @@ CLI_Status_t CLI_Init(UART_HandleTypeDef *huart)
 #endif
     printf(CLI_PROMPT);
 
-    HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
+    HAL_UART_Receive_IT(ctx->uart.huart, (uint8_t*)_input, 1);
     return CLI_OK;
 }
 
@@ -316,12 +319,12 @@ If it is empty, then it will set the flag to RESET.
  */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == _cli_uart->Instance) {
+    if (huart->Instance == _ctx->uart.huart->Instance) {
         CLI_CRITICAL();
 
         unsigned int buffer_size = RingBuffer_GetSize(&_buffer);
         if (buffer_size > 0) {
-            UART_TransmitChunk(buffer_size);
+            UART_TransmitChunk(_ctx, buffer_size);
         } else {
             _uart_tx_pend_flag = RESET;
         }
@@ -336,9 +339,9 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == _cli_uart->Instance) {
+    if (huart->Instance == _ctx->uart.huart->Instance) {
         if (*_input == '\n') {
-            HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
+            HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)_input, 1);
             return;
         }
 
@@ -362,7 +365,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                 printf("%c", *_input);
             }
         }
-        HAL_UART_Receive_IT(_cli_uart, (uint8_t*)_input, 1);
+        HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)_input, 1);
     }
 }
 
