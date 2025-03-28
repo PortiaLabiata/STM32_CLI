@@ -214,10 +214,10 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
 
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    CLI_AddCommand("help", &help_Handler, "Prints this message.");
-    CLI_AddCommand("test", &test_Handler, "Simply prints it's arguments");
-    CLI_AddCommand("nop", &nop_Handler, "Does absolutely nothing.");
-    CLI_AddCommand("err", &err_Handler, "Returns CLI_ERROR, so should cause error.");
+    CLI_AddCommand(ctx, "help", &help_Handler, "Prints this message.");
+    CLI_AddCommand(ctx, "test", &test_Handler, "Simply prints it's arguments");
+    CLI_AddCommand(ctx, "nop", &nop_Handler, "Does absolutely nothing.");
+    CLI_AddCommand(ctx, "err", &err_Handler, "Returns CLI_ERROR, so should cause error.");
 #ifdef CLI_DISPLAY_GREETING
     printf("%s\n", CLI_GREETING);
 #endif
