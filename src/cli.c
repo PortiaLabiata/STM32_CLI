@@ -287,6 +287,8 @@ char *CLI_Status2Str(CLI_Status_t status)
             return "CLI_ERROR";
         case CLI_ERROR_ARG:
             return "CLI_ERROR_ARG";
+        case CLI_ERROR_RUNTIME:
+            return "CLI_ERROR_RUNTIME";
         default:
             return "Unknown status";
     }

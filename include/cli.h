@@ -39,7 +39,8 @@
 typedef enum {
     CLI_OK,
     CLI_ERROR,
-    CLI_ERROR_ARG
+    CLI_ERROR_ARG,
+    CLI_ERROR_RUNTIME
 } CLI_Status_t;
 
 typedef struct {

@@ -53,3 +53,12 @@ To add custom commands, call:
 where `char cmd[]` is command's name and `func` is the handler. The handler takes two arguments: `int argc` (number of symbolic arguments) and `char *argv[]` (arguments themselves), kind of like `main` function in desktop C. Internal logic of commands, including argument processing, is entirely up to you.
 
     > Warning! Checking if number of arguments is consistent with your logic is up to you also, so that it's possible to implement commands with variable number of arguments in the user side.  
+
+### Error handling
+
+CLI functions return error codes. They are values of type `CLI_Status_t`, in case if there was no error, functions return `CLI_OK`. All errors are returned to the top of the stack. User commands should return error codes as well. As of currently, these are error codes available:
+
+1. `CLI_OK` - No error;
+2. `CLI_ERROR_ARG` - Error in user command, improper number or type of arguments;
+3. `CLI_ERROR_RUNTIME` - Error in user command, something went wrong during runtime;
+4. `CLI_ERROR` - General error.
