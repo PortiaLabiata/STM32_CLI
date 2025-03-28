@@ -7,8 +7,8 @@ add -D USE_CLI to build flags. */
 #ifdef USE_CLI
 
 /* Global variables */
-static UART_HandleTypeDef *_cli_uart; // HAL UART object used for IO
-static RingBuffer_t _buffer; // Buffer used for IO
+//static UART_HandleTypeDef *_cli_uart; // HAL UART object used for IO
+//static RingBuffer_t _buffer; // Buffer used for IO
 
 static uint8_t _input[1]; // Current symbol, recieved from UART
 static uint8_t _line[MAX_LINE_LEN]; // Current line, recieved from UART. Resets every \r
@@ -98,7 +98,7 @@ static CLI_Status_t CLI_ProcessCommand(void)
 static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buffer_size)
 {
     CLI_CRITICAL();
-    RingBuffer_read(&_buffer, _pData, MIN(CHUNK_SIZE, buffer_size));
+    RingBuffer_read(&ctx->uart.buffer, _pData, MIN(CHUNK_SIZE, buffer_size));
     _uart_tx_pend_flag = SET;
     CLI_UNCRITICAL();
     return HAL_UART_Transmit_IT(ctx->uart.huart, _pData, MIN(CHUNK_SIZE, buffer_size));
@@ -159,14 +159,14 @@ int _write(int fd, uint8_t *data, int size)
         int ms_start = HAL_GetTick();
         CLI_UNCRITICAL();
 
-        while (RingBuffer_write(&_buffer, data, size) != RB_OK) {
+        while (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
                  HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
                 return -1;
             }
         }
 #else
-        if (RingBuffer_write(&_buffer, data, size) != RB_OK) return -1;
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
         CLI_UNCRITICAL();
 #endif
         } else { // UART not busy
@@ -178,14 +178,14 @@ int _write(int fd, uint8_t *data, int size)
         int ms_start = HAL_GetTick();
         CLI_UNCRITICAL();
 
-        while (RingBuffer_write(&_buffer, data, size) != RB_OK) {
+        while (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
                  HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
                 return -1;
             }
         }
 #else
-        if (RingBuffer_write(&_buffer, data, size) != RB_OK) return -1;
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif        
     }
 
@@ -218,7 +218,7 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
     if (HAL_UART_GetState(huart) != HAL_UART_STATE_READY) return CLI_ERROR;
     ctx->uart.huart = huart;
     _symbol = _line;
-    RingBuffer_Init(&_buffer);
+    RingBuffer_Init(&ctx->uart.buffer);
     _ctx = ctx;
 
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -322,7 +322,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
     if (huart->Instance == _ctx->uart.huart->Instance) {
         CLI_CRITICAL();
 
-        unsigned int buffer_size = RingBuffer_GetSize(&_buffer);
+        unsigned int buffer_size = RingBuffer_GetSize(&_ctx->uart.buffer);
         if (buffer_size > 0) {
             UART_TransmitChunk(_ctx, buffer_size);
         } else {
