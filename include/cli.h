@@ -19,7 +19,7 @@
 
 #define CLI_CRITICAL() HAL_NVIC_DisableIRQ(USART1_IRQn)
 #define CLI_UNCRITICAL() HAL_NVIC_EnableIRQ(USART1_IRQn)
-#define PRINT_PROMPT() printf("%s\n", CLI_PROMPT)
+#define PRINT_PROMPT() printf("%s", CLI_PROMPT)
 
 /* Magic numbers */
 
@@ -51,6 +51,15 @@ typedef struct {
     char *help;
 } CLI_Command_t;
 
+typedef enum {
+    CLI_IDLE,
+    CLI_TRANSMITTING,
+    CLI_RECIEVING,
+    CLI_CMD_READY,
+    CLI_PROCESSING,
+    CLI_PROM_PEND
+} CLI_State_t;
+
 typedef struct {
     CLI_State_t state;
     struct {
@@ -72,13 +81,6 @@ typedef struct {
     } uart;
 } CLI_Context_t;
 
-typedef enum {
-    CLI_READY,
-    CLI_TRANSMITTING,
-    CLI_RECIEVING,
-    CLI_PROCESSING
-} CLI_State_t;
-
 /* Configuration functions */
 
 CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart);
@@ -93,9 +95,9 @@ CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)
 
 /* HIgh-level IO */
 
-void CLI_Println(char message[]);
-void CLI_Log(char context[], char message[]);
-void CLI_Print(char message[]);
+void CLI_Println(CLI_Context_t *ctx, char message[]);
+void CLI_Log(CLI_Context_t *ctx, char context[], char message[]);
+void CLI_Print(CLI_Context_t *ctx, char message[]);
 char *CLI_Status2Str(CLI_Status_t status);
 
 /* Callbacks */

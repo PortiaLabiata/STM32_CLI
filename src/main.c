@@ -14,11 +14,11 @@ int main(void)
     CLI_Context_t ctx;
 
     CLI_Init(&ctx, &huart1);
-    CLI_Log(__FILE__, "CLI ready.");
+    CLI_Log(&ctx, __FILE__, "CLI ready.");
 
     while (1) {
         if ((status = CLI_RUN(&ctx)) != CLI_OK) {
-            CLI_Log(__func__, CLI_Status2Str(status));
+            CLI_Log(&ctx, __func__, CLI_Status2Str(status));
         }
     }
 }

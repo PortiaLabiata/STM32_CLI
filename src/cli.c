@@ -7,16 +7,16 @@ add -D USE_CLI to build flags. */
 #ifdef USE_CLI
 
 /* Flags, ensure that all transmit operations are in critical sections */
-static uint8_t _command_rdy_flag = RESET;
+//static uint8_t _command_rdy_flag = RESET;
 
 /*
 This specific flag is set when a transmission of a long output (e. g. command
 output or log line) is in progress and should not be interferred with.
 */
-static uint8_t _uart_tx_pend_flag = RESET;
+//static uint8_t _uart_tx_pend_flag = RESET;
 
 /* This flag indicates, that a command was executed, so CLI needs to print prompt */
-static uint8_t _cli_command_exec_flag = RESET;
+//static uint8_t _cli_command_exec_flag = RESET;
 static CLI_Context_t *_ctx;
 
 #define MIN(a, b) ((a < b) ? a : b)
@@ -63,7 +63,6 @@ static CLI_Status_t CLI_ProcessCommand(CLI_Context_t *ctx)
     /*
         TODO: switch from strtok to strtok_r
     */
-    _cli_command_exec_flag = SET;
     int argc = 0;
     char *argv[MAX_ARGUMENTS];
     argv[argc++] = strtok((char*)ctx->ribbon.line, " ");
@@ -73,10 +72,13 @@ static CLI_Status_t CLI_ProcessCommand(CLI_Context_t *ctx)
     for (int i = 0; i < ctx->cmd.num_commands; i++) {
         curr_cmd = ctx->cmd.commands[i];
         if (strcmp(argv[0], curr_cmd.command) == 0) {
-            return curr_cmd.func(argc, argv);
+            CLI_Status_t _status = curr_cmd.func(argc, argv);
+            ctx->state = CLI_PROM_PEND;
+            return _status;
         }
     }
     printf("Error: command not found!\n");
+    ctx->state = CLI_PROM_PEND;
     return CLI_ERROR;
 }
 
@@ -89,7 +91,7 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
 {
     CLI_CRITICAL();
     RingBuffer_read(&ctx->uart.buffer, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
-    _uart_tx_pend_flag = SET;
+    ctx->state = CLI_TRANSMITTING;
     CLI_UNCRITICAL();
     return HAL_UART_Transmit_IT(ctx->uart.huart, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
 }
@@ -105,16 +107,16 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
 CLI_Status_t CLI_RUN(CLI_Context_t *ctx)
 {
     CLI_CRITICAL();
-    CLI_Status_t status = CLI_OK;
-    if (_command_rdy_flag == SET) {
-        _command_rdy_flag = RESET;
-        status = CLI_ProcessCommand(ctx);
-    } if (_cli_command_exec_flag == SET) {
-        _cli_command_exec_flag = RESET;
+    CLI_Status_t _status = CLI_OK;
+    if (ctx->state == CLI_CMD_READY) {
+        ctx->state = CLI_PROCESSING;
+        _status = CLI_ProcessCommand(ctx);
+    } if (ctx->state == CLI_PROM_PEND) {
         PRINT_PROMPT();
+        ctx->state = CLI_IDLE;
     }
     CLI_UNCRITICAL();
-    return status;
+    return _status;
 }
 
 /* Syscalls */
@@ -140,12 +142,11 @@ int _write(int fd, uint8_t *data, int size)
     }
 
     CLI_CRITICAL();
-    if (_uart_tx_pend_flag == RESET) { // Transmission not in progress
-
+    if (_ctx->state != CLI_TRANSMITTING) { // Transmission not in progress
+        _ctx->state = CLI_TRANSMITTING;
         if (HAL_UART_Transmit_IT(_ctx->uart.huart, data, size) != HAL_OK) { // UART busy
 #ifdef CLI_OVERFLOW_PENDING
 
-        CLI_CRITICAL();
         int ms_start = HAL_GetTick();
         CLI_UNCRITICAL();
 
@@ -155,12 +156,17 @@ int _write(int fd, uint8_t *data, int size)
                 return -1;
             }
         }
-#else
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
+        CLI_CRITICAL();
+        _ctx->state = CLI_IDLE;
         CLI_UNCRITICAL();
+#else
+        _ctx->state = CLI_IDLE;
+        CLI_UNCRITICAL();
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif
         } else { // UART not busy
-            _uart_tx_pend_flag = SET;
+            CLI_CRITICAL();
+            _ctx->state = CLI_IDLE;
             CLI_UNCRITICAL();
         }
     } else { // Transmission in progress
@@ -175,10 +181,11 @@ int _write(int fd, uint8_t *data, int size)
             }
         }
 #else
+        _ctx->state = CLI_IDLE;
+        CLI_UNCRITICAL();
         if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif        
     }
-
     CLI_UNCRITICAL();
 
     return size;
@@ -211,6 +218,8 @@ CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)
     ctx->ribbon.cursor_position = _ctx->ribbon.line;
     RingBuffer_Init(&ctx->uart.buffer);
     ctx->cmd.num_commands = 0;
+
+    ctx->state = CLI_IDLE; // Init state machine
 
     setvbuf(stdout, NULL, _IONBF, 0);
 
@@ -252,11 +261,11 @@ CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)
  * \brief Print line and prompt.
  * \param[in] message Message text.
  */
-void CLI_Println(char message[])
+void CLI_Println(CLI_Context_t *ctx, char message[])
 {
     printf("\n");
     printf("%s\n", message);
-    _cli_command_exec_flag = SET;
+    ctx->state = CLI_PROM_PEND;
 }
 
 /**
@@ -264,27 +273,27 @@ void CLI_Println(char message[])
  * \param[in] context Context of execution.
  * \param[in] message Message text.
  */
-void CLI_Log(char context[], char message[])
+void CLI_Log(CLI_Context_t *ctx, char context[], char message[])
 {
     printf("\n");
     printf("[%s] %s\n", context, message);
-    _cli_command_exec_flag = SET;
+    ctx->state = CLI_PROM_PEND;
 }
 
 /**
  * \brief Print message and prompt.
  * \param[in] message Message text.
  */
-void CLI_Print(char message[])
+void CLI_Print(CLI_Context_t *ctx, char message[])
 {
     printf("\r\n");
     printf("%s", message);
-    _cli_command_exec_flag = SET;
+    ctx->state = CLI_PROM_PEND;
 }
 
-char *CLI_Status2Str(CLI_Status_t status)
+char *CLI_Status2Str(CLI_Status_t _status)
 {
-    switch (status) {
+    switch (_status) {
         case CLI_OK:
             return "CLI_OK";
         case CLI_ERROR:
@@ -313,15 +322,13 @@ If it is empty, then it will set the flag to RESET.
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _ctx->uart.huart->Instance) {
-        CLI_CRITICAL();
-
         unsigned int buffer_size = RingBuffer_GetSize(&_ctx->uart.buffer);
+
         if (buffer_size > 0) {
             UART_TransmitChunk(_ctx, buffer_size);
         } else {
-            _uart_tx_pend_flag = RESET;
+            _ctx->state = CLI_IDLE;
         }
-        CLI_UNCRITICAL();
     }
 }
 
@@ -333,29 +340,32 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _ctx->uart.huart->Instance) {
-        if (_ctx->ribbon.input == '\n') {
-            HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)&_ctx->ribbon.input, 1);
-            return;
-        }
+        _ctx->state = CLI_RECIEVING;
+        switch (_ctx->ribbon.input) {
+            case '\n':
+                _ctx->state = CLI_IDLE;
+                break;
 
-        if (_ctx->ribbon.input == '\r') {
-
-            CLI_CRITICAL();
-            *_ctx->ribbon.cursor_position = '\0';
-            _ctx->ribbon.cursor_position = _ctx->ribbon.line;
-            _command_rdy_flag = SET;
-            printf("\n");
-            CLI_UNCRITICAL();
-            /* It is impossible for \n to arise behind this point */
-        } else if (_ctx->ribbon.cursor_position - _ctx->ribbon.line < MAX_LINE_LEN && _command_rdy_flag != SET) {
-            if (_ctx->ribbon.input == '\b') {
-                if (_ctx->ribbon.cursor_position > _ctx->ribbon.line) {
-                    _ctx->ribbon.cursor_position--;
-                    printf("\b");
-                }
-            } else {
-                *_ctx->ribbon.cursor_position++ = _ctx->ribbon.input;
-                printf("%c", _ctx->ribbon.input);
+            case '\r':
+                *_ctx->ribbon.cursor_position = '\0';
+                _ctx->ribbon.cursor_position = _ctx->ribbon.line;
+                printf("\n");
+                _ctx->state = CLI_CMD_READY;
+                break;
+            
+            default:
+                if (_ctx->ribbon.cursor_position - _ctx->ribbon.line < MAX_LINE_LEN && \
+                    _ctx->state != CLI_CMD_READY) {
+                    if (_ctx->ribbon.input == '\b') {
+                        if (_ctx->ribbon.cursor_position > _ctx->ribbon.line) {
+                            _ctx->ribbon.cursor_position--;
+                            printf("\b"); // Backspace
+                        }
+                    } else {
+                        *_ctx->ribbon.cursor_position++ = _ctx->ribbon.input;
+                        printf("%c", _ctx->ribbon.input); // Echo
+                    }
+                _ctx->state = CLI_IDLE;
             }
         }
         HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)&_ctx->ribbon.input, 1);
