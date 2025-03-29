@@ -68,7 +68,7 @@ CLI functions return error codes. They are values of type `CLI_Status_t`, in cas
 To handle pseudo-multithreading, there are two state machines following CLI state. First machine's transition graph is as follows:
 
 ```mermaid
-stateDiagram-v2
+stateDiagram-v2;
     [*] --> CLI_IDLE
     CLI_IDLE --> CLI_RECIEVING: RxCplt (any char)
     
@@ -107,4 +107,4 @@ stateDiagram-v2
         - CLI_OVERFLOW_PENDING controls blocking
     end note```
 
-The second state machine chanhes it's state depending on from which state the previous transision of the first machine happend. It is in developement right now.
+The second state machine follows the first one, one step behind.

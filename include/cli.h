@@ -20,7 +20,11 @@
 #define CLI_CRITICAL() HAL_NVIC_DisableIRQ(USART1_IRQn)
 #define CLI_UNCRITICAL() HAL_NVIC_EnableIRQ(USART1_IRQn)
 #define PRINT_PROMPT() printf("%s", CLI_PROMPT)
-#define TRANSIT_DEP2(__STATE__) (_ctx->state2 == CLI_FROM_CMD) ? (_ctx->state = CLI_PROCESSING) : (_ctx->state = __STATE__)
+#define FSM_TRANSIT(__DESTINATION__) do {_ctx->prev_state = _ctx->state; \
+     _ctx->state = __DESTINATION__;} while (0)
+#define FSM_REVERT() do {CLI_State_t _state = _ctx->state; \
+                            _ctx->state = _ctx->prev_state; \
+                            _ctx->prev_state = _state;} while (0)
 
 /* Magic numbers */
 
@@ -61,14 +65,9 @@ typedef enum {
     CLI_PROM_PEND
 } CLI_State_t;
 
-typedef enum {
-    CLI_FROM_CMD,
-    CLI_FROM_FIRM
-} CLI_State2_t;
-
 typedef struct {
     CLI_State_t state;
-    CLI_State2_t state2;
+    CLI_State_t prev_state;
     struct {
         uint8_t line[MAX_LINE_LEN];
         uint8_t *cursor_position;
