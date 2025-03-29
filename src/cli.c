@@ -80,6 +80,7 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
 {
     CLI_CRITICAL();
     RingBuffer_read(&ctx->uart.buffer, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
+    ctx->state2 = (ctx->state == CLI_PROCESSING) ? CLI_FROM_CMD : CLI_FROM_FIRM;
     ctx->state = CLI_TRANSMITTING;
     CLI_UNCRITICAL();
     return HAL_UART_Transmit_IT(ctx->uart.huart, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));

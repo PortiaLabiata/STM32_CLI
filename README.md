@@ -62,3 +62,49 @@ CLI functions return error codes. They are values of type `CLI_Status_t`, in cas
 2. `CLI_ERROR_ARG` - Error in user command, improper number or type of arguments;
 3. `CLI_ERROR_RUNTIME` - Error in user command, something went wrong during runtime;
 4. `CLI_ERROR` - General error.
+
+### State machines
+
+To handle pseudo-multithreading, there are two state machines following CLI state. First machine's transition graph is as follows:
+
+```mermaid
+stateDiagram-v2
+    [*] --> CLI_IDLE
+    CLI_IDLE --> CLI_RECIEVING: RxCplt (any char)
+    
+    state CLI_RECIEVING {
+        [*] --> HANDLE_CHAR
+        HANDLE_CHAR --> NEWLINE: '\\n'
+        HANDLE_CHAR --> ENTER: '\\r'
+        HANDLE_CHAR --> BACKSPACE: '\\b'
+        HANDLE_CHAR --> STORE: Normal char
+        ENTER --> CLI_CMD_READY: Set state
+        BACKSPACE --> CLI_IDLE: Update cursor
+        STORE --> CLI_IDLE: Update buffer
+        NEWLINE --> CLI_IDLE: Ignored
+    }
+    
+    CLI_CMD_READY --> CLI_PROCESSING: CLI_RUN() called
+    CLI_PROCESSING --> CLI_PROM_PEND: Command completed
+    CLI_PROM_PEND --> CLI_IDLE: Prompt printed
+    
+    CLI_IDLE --> CLI_TRANSMITTING: _write() called
+    CLI_TRANSMITTING --> CLI_IDLE: TxCplt (buffer empty)
+    CLI_TRANSMITTING --> CLI_TRANSMITTING: TxCplt (more data)
+
+    note right of CLI_RECIEVING
+        Echo handling:
+        - printf called directly in ISR
+        - Immediate return to IDLE
+        - Backspace: "\b" printed
+        - Normal: char echoed
+    end note
+    
+    note left of CLI_TRANSMITTING
+        Transmission flow:
+        - _write() forces TRANSMITTING
+        - Buffer managed via RingBuffer
+        - CLI_OVERFLOW_PENDING controls blocking
+    end note```
+
+The second state machine chanhes it's state depending on from which state the previous transision of the first machine happend. It is in developement right now.
