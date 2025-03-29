@@ -54,20 +54,24 @@ static CLI_Status_t CLI_ProcessCommand(CLI_Context_t *ctx)
     */
     int argc = 0;
     char *argv[MAX_ARGUMENTS];
+    CLI_CRITICAL();
     argv[argc++] = strtok((char*)ctx->ribbon.line, " ");
     while ((argv[argc++] = strtok(NULL, " ")) && argc < MAX_ARGUMENTS) ;
+    CLI_UNCRITICAL();
 
     CLI_Command_t curr_cmd;
     for (int i = 0; i < ctx->cmd.num_commands; i++) {
         curr_cmd = ctx->cmd.commands[i];
         if (strcmp(argv[0], curr_cmd.command) == 0) {
             CLI_Status_t _status = curr_cmd.func(argc, argv);
-            ctx->state = CLI_PROM_PEND;
+            FSM_TRANSIT(CLI_PROM_PEND);
             return _status;
         }
     }
     printf("Error: command not found!\n");
-    ctx->state = CLI_PROM_PEND;
+    CLI_CRITICAL();
+    FSM_TRANSIT(CLI_PROM_PEND);
+    CLI_UNCRITICAL();
     return CLI_ERROR;
 }
 
@@ -154,8 +158,10 @@ int _write(int fd, uint8_t *data, int size)
         CLI_UNCRITICAL(); // Possible SM corruption due to RingBuffer ops being non-atomic
         if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif
-        } else {
+        } else { // UART not busy
+            CLI_CRITICAL();
             FSM_REVERT();
+            CLI_UNCRITICAL();
         }
     } else { // Transmission in progress
 #ifdef CLI_OVERFLOW_PENDING
@@ -168,7 +174,9 @@ int _write(int fd, uint8_t *data, int size)
                 return -1;
             }
         }
+        CLI_CRITICAL();
         FSM_REVERT();
+        CLI_UNCRITICAL();
 #else
         FSM_REVERT();
         CLI_UNCRITICAL();
