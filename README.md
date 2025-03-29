@@ -1,5 +1,11 @@
 # bShell: A simple CLI for STM32
 
+## TODO
+
+1. Fix critical section gaps in _write, maybe add context checking?
+2. Add timeout and error handling states.
+3. Do something about potentially blocking behaviour in interrupts.
+
 ## Description
 
 This is a relatively small CLI library for STM32 UART, somewhat inspired by [uShell](https://github.com/mdiepart/ushell-stm32/tree/master), but (at least in my opinion) a little better written, although it might not be the case. It reads and writes data entirely in interrupt mode, although commands themselves are processed in the main loop.

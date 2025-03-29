@@ -365,11 +365,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                     if (_ctx->ribbon.input == '\b') {
                         if (_ctx->ribbon.cursor_position > _ctx->ribbon.line) {
                             _ctx->ribbon.cursor_position--;
-                            printf("\b"); // Backspace
+                            //printf("\b"); // Backspace
+                            HAL_UART_Transmit_IT(_ctx->uart.huart, \
+                                (uint8_t*)"\b", 1);
                         }
                     } else {
                         *_ctx->ribbon.cursor_position++ = _ctx->ribbon.input;
-                        printf("%c", _ctx->ribbon.input); // Echo
+                        //printf("%c", _ctx->ribbon.input); // Echo
+                        HAL_UART_Transmit_IT(_ctx->uart.huart, \
+                            (uint8_t*)&_ctx->ribbon.input, 1);
                     }
                 }
                 FSM_REVERT();
