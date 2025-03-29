@@ -6,17 +6,6 @@ add -D USE_CLI to build flags. */
 
 #ifdef USE_CLI
 
-/* Flags, ensure that all transmit operations are in critical sections */
-//static uint8_t _command_rdy_flag = RESET;
-
-/*
-This specific flag is set when a transmission of a long output (e. g. command
-output or log line) is in progress and should not be interferred with.
-*/
-//static uint8_t _uart_tx_pend_flag = RESET;
-
-/* This flag indicates, that a command was executed, so CLI needs to print prompt */
-//static uint8_t _cli_command_exec_flag = RESET;
 static CLI_Context_t *_ctx;
 
 #define MIN(a, b) ((a < b) ? a : b)
@@ -142,6 +131,9 @@ int _write(int fd, uint8_t *data, int size)
     }
 
     CLI_CRITICAL();
+    if (_ctx->state == CLI_PROCESSING) _ctx->state2 = CLI_FROM_CMD;
+    else _ctx->state2 = CLI_FROM_FIRM;
+
     if (_ctx->state != CLI_TRANSMITTING) { // Transmission not in progress
         _ctx->state = CLI_TRANSMITTING;
         if (HAL_UART_Transmit_IT(_ctx->uart.huart, data, size) != HAL_OK) { // UART busy
@@ -157,17 +149,20 @@ int _write(int fd, uint8_t *data, int size)
             }
         }
         CLI_CRITICAL();
-        _ctx->state = CLI_IDLE;
+        TRANSIT_DEP2(CLI_IDLE);
+        _ctx->state2 = CLI_FROM_FIRM;
         CLI_UNCRITICAL();
 #else
-        _ctx->state = CLI_IDLE;
+        TRANSIT_DEP2(CLI_IDLE);
+        _ctx->state2 = CLI_FROM_FIRM;
         CLI_UNCRITICAL();
         if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif
         } else { // UART not busy
-            CLI_CRITICAL();
-            _ctx->state = CLI_IDLE;
-            CLI_UNCRITICAL();
+            // CLI_CRITICAL();
+            // TRANSIT_DEP2(CLI_IDLE);
+            // _ctx->state2 = CLI_FROM_FIRM;
+            // CLI_UNCRITICAL();
         }
     } else { // Transmission in progress
 #ifdef CLI_OVERFLOW_PENDING
@@ -180,8 +175,11 @@ int _write(int fd, uint8_t *data, int size)
                 return -1;
             }
         }
+        TRANSIT_DEP2(CLI_IDLE);
+        _ctx->state2 = CLI_FROM_FIRM;
 #else
-        _ctx->state = CLI_IDLE;
+        TRANSIT_DEP2(CLI_IDLE);
+        _ctx->state2 = CLI_FROM_FIRM;
         CLI_UNCRITICAL();
         if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif        
@@ -327,7 +325,8 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
         if (buffer_size > 0) {
             UART_TransmitChunk(_ctx, buffer_size);
         } else {
-            _ctx->state = CLI_IDLE;
+            TRANSIT_DEP2(CLI_IDLE);
+            _ctx->state2 = CLI_FROM_FIRM;
         }
     }
 }
@@ -340,17 +339,18 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == _ctx->uart.huart->Instance) {
+        if (_ctx->state == CLI_PROCESSING) _ctx->state2 = CLI_FROM_CMD;
         _ctx->state = CLI_RECIEVING;
         switch (_ctx->ribbon.input) {
             case '\n':
-                _ctx->state = CLI_IDLE;
+                TRANSIT_DEP2(CLI_IDLE);
                 break;
 
             case '\r':
                 *_ctx->ribbon.cursor_position = '\0';
                 _ctx->ribbon.cursor_position = _ctx->ribbon.line;
                 printf("\n");
-                _ctx->state = CLI_CMD_READY;
+                TRANSIT_DEP2(CLI_CMD_READY);
                 break;
             
             default:
@@ -365,7 +365,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                         *_ctx->ribbon.cursor_position++ = _ctx->ribbon.input;
                         printf("%c", _ctx->ribbon.input); // Echo
                     }
-                _ctx->state = CLI_IDLE;
+                TRANSIT_DEP2(CLI_IDLE);
             }
         }
         HAL_UART_Receive_IT(_ctx->uart.huart, (uint8_t*)&_ctx->ribbon.input, 1);
