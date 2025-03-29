@@ -68,43 +68,26 @@ CLI functions return error codes. They are values of type `CLI_Status_t`, in cas
 To handle pseudo-multithreading, there are two state machines following CLI state. First machine's transition graph is as follows:
 
 ```mermaid
-stateDiagram-v2;
-    [*] --> CLI_IDLE
-    CLI_IDLE --> CLI_RECIEVING: RxCplt (any char)
-    
-    state CLI_RECIEVING {
-        [*] --> HANDLE_CHAR
-        HANDLE_CHAR --> NEWLINE: '\\n'
-        HANDLE_CHAR --> ENTER: '\\r'
-        HANDLE_CHAR --> BACKSPACE: '\\b'
-        HANDLE_CHAR --> STORE: Normal char
-        ENTER --> CLI_CMD_READY: Set state
-        BACKSPACE --> CLI_IDLE: Update cursor
-        STORE --> CLI_IDLE: Update buffer
-        NEWLINE --> CLI_IDLE: Ignored
-    }
-    
-    CLI_CMD_READY --> CLI_PROCESSING: CLI_RUN() called
-    CLI_PROCESSING --> CLI_PROM_PEND: Command completed
-    CLI_PROM_PEND --> CLI_IDLE: Prompt printed
-    
-    CLI_IDLE --> CLI_TRANSMITTING: _write() called
-    CLI_TRANSMITTING --> CLI_IDLE: TxCplt (buffer empty)
-    CLI_TRANSMITTING --> CLI_TRANSMITTING: TxCplt (more data)
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> RECEIVING : RxCplt
+    RECEIVING --> IDLE : REVERT
 
-    note right of CLI_RECIEVING
-        Echo handling:
-        - printf called directly in ISR
-        - Immediate return to IDLE
-        - Backspace: "\b" printed
-        - Normal: char echoed
-    end note
-    
-    note left of CLI_TRANSMITTING
-        Transmission flow:
-        - _write() forces TRANSMITTING
-        - Buffer managed via RingBuffer
-        - CLI_OVERFLOW_PENDING controls blocking
-    end note```
+    RECEIVING --> CLI_CMD_READY : '\r'
+
+    CLI_CMD_READY --> PROCESSING : CLI_RUN()
+    PROCESSING --> TRANSMITTING : printf
+    TRANSMITTING --> PROCESSING : REVERT
+    PROCESSING --> PROM_PEND
+
+    PROM_PEND --> IDLE
+
+    RECEIVING --> TRANSMITTING : printf
+    TRANSMITTING --> RECEIVING : REVERT
+
+    IDLE --> TRANSMITTING : printf
+    TRANSMITTING --> IDLE : REVERT
+
+```
 
 The second state machine follows the first one, one step behind.
