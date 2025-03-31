@@ -144,13 +144,12 @@ int _write(int fd, uint8_t *data, int size)
         int ms_start = HAL_GetTick();
         CLI_UNCRITICAL();
 
-        while (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+        while (MAX_BUFFER_LEN - RingBuffer_GetSize(&_ctx->uart.buffer) < size) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
-                 HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
-                return -1;
-            }
+                HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) break;
         }
         CLI_CRITICAL();
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != CLI_OK) return -1;
         FSM_REVERT();
         CLI_UNCRITICAL();
 #else
@@ -168,13 +167,12 @@ int _write(int fd, uint8_t *data, int size)
         int ms_start = HAL_GetTick();
         CLI_UNCRITICAL();
 
-        while (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+        while (MAX_BUFFER_LEN - RingBuffer_GetSize(&_ctx->uart.buffer) < size) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
-                 HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
-                return -1;
-            }
+                HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) break;
         }
         CLI_CRITICAL();
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != CLI_OK) return -1;
         FSM_REVERT();
         CLI_UNCRITICAL();
 #else
