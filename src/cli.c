@@ -92,8 +92,7 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
 {
     CLI_CRITICAL();
     RingBuffer_read(&ctx->uart.buffer, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
-    //FSM_REVERT();
-    FSM_TRANSIT(CLI_TRANSMITTING);
+    //FSM_TRANSIT(CLI_TRANSMITTING);
     CLI_UNCRITICAL();
     return HAL_UART_Transmit_IT(ctx->uart.huart, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
 }
@@ -118,9 +117,10 @@ CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void))
     CLI_CRITICAL();
     CLI_State_t state = ctx->state;
     CLI_UNCRITICAL();
+
     if (state == CLI_ON_HOLD) {
         loop();
-        return CLI_OK;
+        //return CLI_OK;
     }
     CLI_CRITICAL();
 
@@ -199,7 +199,11 @@ int _write(int fd, uint8_t *data, int size)
     FSM_TRANSIT(CLI_TRANSMITTING);
     CLI_UNCRITICAL();
 
-    if (HAL_UART_Transmit_IT(_ctx->uart.huart, data, size) != HAL_OK) {
+    //CLI_CRITICAL();
+    HAL_StatusTypeDef status = HAL_UART_Transmit_IT(_ctx->uart.huart, data, size);
+    //CLI_UNCRITICAL();
+
+    if (status != HAL_OK) {
         int status = write_pending(data, size);
         return MIN(size, status);
     } else {
@@ -209,87 +213,6 @@ int _write(int fd, uint8_t *data, int size)
         return size;
     }
 }
-
-/* int _write(int fd, uint8_t *data, int size)
-{
-    if (fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
-        return -1;
-    }
-
-    CLI_CRITICAL();
-
-    if (_ctx->state != CLI_TRANSMITTING) { // Transmission not in progress
-        FSM_TRANSIT(CLI_TRANSMITTING);
-        if (HAL_UART_Transmit_IT(_ctx->uart.huart, data, size) != HAL_OK) { // UART busy
-#ifdef CLI_OVERFLOW_PENDING
-
-        int ms_start = HAL_GetTick();
-        CLI_UNCRITICAL();
-
-        while (MAX_BUFFER_LEN - RingBuffer_GetSize(&_ctx->uart.buffer) < size) {
-            if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
-                HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
-                    break;
-                }
-        }
-        CLI_CRITICAL();
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
-            FSM_TRANSIT(CLI_TIMEOUT);
-            CLI_UNCRITICAL();
-            return -1;
-        }
-        FSM_REVERT();
-        CLI_UNCRITICAL();
-#else
-        //FSM_REVERT();
-        // Possible SM corruption due to RingBuffer ops being non-atomic
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
-            FSM_TRANSIT(CLI_TIMEOUT);
-            CLI_UNCRITICAL();
-            return -1;
-        } else {
-            FSM_REVERT();
-        }
-        CLI_UNCRITICAL();
-#endif
-        } else { // UART not busy
-            CLI_CRITICAL();
-            FSM_REVERT();
-            CLI_UNCRITICAL();
-        }
-    } else { // Transmission in progress
-#ifdef CLI_OVERFLOW_PENDING
-        int ms_start = HAL_GetTick();
-        CLI_UNCRITICAL();
-
-        while (MAX_BUFFER_LEN - RingBuffer_GetSize(&_ctx->uart.buffer) < size) {
-            if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
-                HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) break;
-        }
-        CLI_CRITICAL();
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
-            FSM_TRANSIT(CLI_TIMEOUT);
-            CLI_UNCRITICAL();
-            return -1;
-        }
-        //FSM_REVERT();
-        CLI_UNCRITICAL();
-#else
-        //FSM_REVERT();
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
-            FSM_TRANSIT(CLI_TIMEOUT);
-            CLI_UNCRITICAL();
-            return -1;
-        } else {
-            FSM_REVERT();
-        }
-        CLI_UNCRITICAL();
-#endif        
-    }
-    CLI_UNCRITICAL();
-
-    return size;
-} */
 
 int _isatty(int fd)
 {
@@ -428,9 +351,8 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
         unsigned int buffer_size = RingBuffer_GetSize(&_ctx->uart.buffer);
 
         if (buffer_size > 0) {
-            //FSM_REVERT();
             UART_TransmitChunk(_ctx, buffer_size);
-        } else {
+        } else if (_ctx->state == CLI_TRANSMITTING) {
             FSM_REVERT();
         }
     }
