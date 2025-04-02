@@ -5,6 +5,10 @@ UART_HandleTypeDef huart1;
 
 CLI_Status_t status = CLI_OK;
 
+void loop(void)
+{
+}
+
 int main(void)
 {
     HAL_Init();
@@ -17,7 +21,7 @@ int main(void)
     CLI_Log(&ctx, __FILE__, "CLI ready.");
 
     while (1) {
-        if ((status = CLI_RUN(&ctx)) != CLI_OK) {
+        if ((status = CLI_RUN(&ctx, loop)) != CLI_OK) {
             CLI_Log(&ctx, __func__, CLI_Status2Str(status));
         }
     }

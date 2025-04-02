@@ -9,7 +9,7 @@
 #include <stm32f1xx_hal_uart.h>
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> // Obsolete?
 #include <ctype.h>
 #include <string.h>
 #include <stdbool.h>
@@ -62,12 +62,18 @@ typedef enum {
     CLI_RECIEVING,
     CLI_CMD_READY,
     CLI_PROCESSING,
-    CLI_PROM_PEND
+    CLI_PROM_PEND,
+
+    CLI_ERROR_HANDLE,
+    CLI_TIMEOUT,
+    CLI_ON_HOLD
 } CLI_State_t;
 
 typedef struct {
     CLI_State_t state;
     CLI_State_t prev_state;
+    //char hist[MAX_HISTORY][MAX_LINE_LEN]; // Yes, static memory allocation
+    uint8_t _hist_index;
     struct {
         uint8_t line[MAX_LINE_LEN];
         uint8_t *cursor_position;
@@ -87,6 +93,10 @@ typedef struct {
     } uart;
 } CLI_Context_t;
 
+/* Handlers */
+
+__weak CLI_Status_t CLI_TimeoutHandler(CLI_Context_t *ctx);
+
 /* Configuration functions */
 
 CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart);
@@ -95,7 +105,7 @@ int _isatty(int fd);
 
 /* Processing functions */
 
-CLI_Status_t CLI_RUN(CLI_Context_t *ctx);
+CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void));
 CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[]);
 

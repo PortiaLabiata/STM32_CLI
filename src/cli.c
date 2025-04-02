@@ -41,6 +41,14 @@ static CLI_Status_t err_Handler(int argc, char *argv[])
     return CLI_ERROR;
 }
 
+__weak CLI_Status_t CLI_TimeoutHandler(CLI_Context_t *ctx)
+{
+    CLI_CRITICAL();
+    RingBuffer_read(&ctx->uart.buffer, NULL, ctx->uart.buffer.size);
+    FSM_TRANSIT(CLI_PROM_PEND);
+    CLI_UNCRITICAL();
+    return CLI_OK;
+}
 /* Processing functions */
 
 /**
@@ -97,9 +105,17 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
  *  that is, if command was recieved (that is, if \r was encountered). Also prints
  *  prompt. Atomic.
  */
-CLI_Status_t CLI_RUN(CLI_Context_t *ctx)
+CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void))
 {
+    if (ctx->state == CLI_ON_HOLD) {
+        loop();
+    }
+
     CLI_CRITICAL();
+    if (ctx->state == CLI_TIMEOUT) {
+        CLI_TimeoutHandler(ctx);
+    }
+
     CLI_Status_t _status = CLI_OK;
     if (ctx->state == CLI_CMD_READY) {
         ctx->state = CLI_PROCESSING;
@@ -128,6 +144,10 @@ The algorithm is as follows:
     3. If UART is not busy, set flag accurdingly.
 */
 
+/* Ok, hear me out. Right now this function is written in Yandere-dev style,
+BUT I am really afraid to do something about it, since it may break. I will add
+this issue to TODO, but not sure when will I fix it. */
+
 int _write(int fd, uint8_t *data, int size)
 {
     if (fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
@@ -146,16 +166,29 @@ int _write(int fd, uint8_t *data, int size)
 
         while (MAX_BUFFER_LEN - RingBuffer_GetSize(&_ctx->uart.buffer) < size) {
             if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
-                HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) break;
+                HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) {
+                    break;
+                }
         }
         CLI_CRITICAL();
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != CLI_OK) return -1;
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+            FSM_TRANSIT(CLI_TIMEOUT);
+            CLI_UNCRITICAL();
+            return -1;
+        }
         FSM_REVERT();
         CLI_UNCRITICAL();
 #else
-        FSM_REVERT();
-        CLI_UNCRITICAL(); // Possible SM corruption due to RingBuffer ops being non-atomic
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
+        //FSM_REVERT();
+        // Possible SM corruption due to RingBuffer ops being non-atomic
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+            FSM_TRANSIT(CLI_TIMEOUT);
+            CLI_UNCRITICAL();
+            return -1;
+        } else {
+            FSM_REVERT();
+        }
+        CLI_UNCRITICAL();
 #endif
         } else { // UART not busy
             CLI_CRITICAL();
@@ -172,13 +205,23 @@ int _write(int fd, uint8_t *data, int size)
                 HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) break;
         }
         CLI_CRITICAL();
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != CLI_OK) return -1;
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+            FSM_TRANSIT(CLI_TIMEOUT);
+            CLI_UNCRITICAL();
+            return -1;
+        }
         FSM_REVERT();
         CLI_UNCRITICAL();
 #else
-        FSM_REVERT();
+        //FSM_REVERT();
+        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+            FSM_TRANSIT(CLI_TIMEOUT);
+            CLI_UNCRITICAL();
+            return -1;
+        } else {
+            FSM_REVERT();
+        }
         CLI_UNCRITICAL();
-        if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) return -1;
 #endif        
     }
     CLI_UNCRITICAL();
@@ -353,9 +396,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             case '\r':
                 *_ctx->ribbon.cursor_position = '\0';
                 _ctx->ribbon.cursor_position = _ctx->ribbon.line;
-                printf("\n");
+                HAL_UART_Transmit_IT(_ctx->uart.huart, \
+                    (uint8_t*)"\n", 1);
                 FSM_TRANSIT(CLI_CMD_READY);
                 break;
+            
+            case '\032': // Ctrl+z pauses the main loop
+                    if (_ctx->state == CLI_IDLE) {
+                        FSM_TRANSIT(CLI_ON_HOLD);
+                    } else {
+                        FSM_TRANSIT(CLI_IDLE);
+                    } // Add check for state machine corruption?
+                    break;
             
             default:
                 if (_ctx->ribbon.cursor_position - _ctx->ribbon.line < MAX_LINE_LEN && \
