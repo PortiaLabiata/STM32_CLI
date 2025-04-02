@@ -411,7 +411,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
             
             case '\032': // Ctrl+z pauses the main loop
                     if (_ctx->prev_state == CLI_ON_HOLD) {
-                        FSM_TRANSIT(CLI_IDLE);
+                        FSM_TRANSIT(CLI_PROM_PEND);
                     } else {
                         FSM_TRANSIT(CLI_ON_HOLD);
                     } 

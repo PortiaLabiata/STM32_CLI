@@ -92,7 +92,7 @@ stateDiagram-v2
     TRANSMITTING --> IDLE : REVERT
 
     RECEIVING --> ON_HOLD : \032
-    ON_HOLD --> IDLE : \032 and previous state is ON_HOLD
+    ON_HOLD --> PROM_PEND : \032 and previous state is ON_HOLD
 
 ```
 
