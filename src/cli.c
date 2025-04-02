@@ -156,10 +156,6 @@ The algorithm is as follows:
     3. If UART is not busy, set flag accurdingly.
 */
 
-/* Ok, hear me out. Right now this function is written in Yandere-dev style,
-BUT I am really afraid to do something about it, since it may break. I will add
-this issue to TODO, but not sure when will I fix it. */
-
 static int write_pending(uint8_t *data, int size)
 {
     CLI_CRITICAL();
@@ -180,6 +176,17 @@ static int write_pending(uint8_t *data, int size)
     CLI_UNCRITICAL();
 }
 
+static int write_no_pending(uint8_t *data, int size)
+{
+    CLI_CRITICAL();
+    if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+        FSM_TRANSIT(CLI_TIMEOUT);
+        CLI_UNCRITICAL();
+        return -1;
+    }
+    CLI_UNCRITICAL();
+}
+
 int _write(int fd, uint8_t *data, int size)
 {
     if (fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
@@ -191,21 +198,29 @@ int _write(int fd, uint8_t *data, int size)
     CLI_UNCRITICAL();
 
     if (_state == CLI_TRANSMITTING) {
+#ifdef CLI_OVERFLOW_PENDING
         int status = write_pending(data, size);
         return MIN(size, status);
+#else
+        write_no_pending(data, size);
+#endif
     }
 
     CLI_CRITICAL();
     FSM_TRANSIT(CLI_TRANSMITTING);
     CLI_UNCRITICAL();
 
-    //CLI_CRITICAL();
+    CLI_CRITICAL();
     HAL_StatusTypeDef status = HAL_UART_Transmit_IT(_ctx->uart.huart, data, size);
-    //CLI_UNCRITICAL();
+    CLI_UNCRITICAL();
 
     if (status != HAL_OK) {
+#ifdef CLI_OVERFLOW_PENDING
         int status = write_pending(data, size);
         return MIN(size, status);
+#else
+        write_no_pending(data, size);
+#endif
     } else {
         CLI_CRITICAL();
         FSM_REVERT();
