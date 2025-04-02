@@ -20,11 +20,14 @@
 #define CLI_CRITICAL() HAL_NVIC_DisableIRQ(USART1_IRQn)
 #define CLI_UNCRITICAL() HAL_NVIC_EnableIRQ(USART1_IRQn)
 #define PRINT_PROMPT() printf("%s", CLI_PROMPT)
-#define FSM_TRANSIT(__DESTINATION__) do {_ctx->prev_state = _ctx->state; \
-     _ctx->state = __DESTINATION__;} while (0)
-#define FSM_REVERT() do {CLI_State_t _state = _ctx->state; \
-                            _ctx->state = _ctx->prev_state; \
-                            _ctx->prev_state = _state;} while (0)
+#define FSM_TRANSIT(__DESTINATION__) do {\
+    _ctx->prev_state = _ctx->state; \
+    _ctx->state = __DESTINATION__;} while (0)
+
+#define FSM_REVERT() do {\
+    CLI_State_t _state = _ctx->state; \
+    _ctx->state = _ctx->prev_state; \
+    _ctx->prev_state = _state;} while (0)
 
 #define LOOP_STUB() _loop()
 

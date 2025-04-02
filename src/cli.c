@@ -92,6 +92,7 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
 {
     CLI_CRITICAL();
     RingBuffer_read(&ctx->uart.buffer, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
+    //FSM_REVERT();
     FSM_TRANSIT(CLI_TRANSMITTING);
     CLI_UNCRITICAL();
     return HAL_UART_Transmit_IT(ctx->uart.huart, _ctx->uart.chunk, MIN(CHUNK_SIZE, buffer_size));
@@ -114,12 +115,15 @@ void _loop(void)
  */
 CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void))
 {
-    if (ctx->state == CLI_ON_HOLD) {
+    CLI_CRITICAL();
+    CLI_State_t state = ctx->state;
+    CLI_UNCRITICAL();
+    if (state == CLI_ON_HOLD) {
         loop();
         return CLI_OK;
     }
-
     CLI_CRITICAL();
+
     if (ctx->state == CLI_TIMEOUT) {
         CLI_TimeoutHandler(ctx);
     }
@@ -156,7 +160,57 @@ The algorithm is as follows:
 BUT I am really afraid to do something about it, since it may break. I will add
 this issue to TODO, but not sure when will I fix it. */
 
+static int write_pending(uint8_t *data, int size)
+{
+    CLI_CRITICAL();
+    int ms_start = HAL_GetTick();
+    CLI_UNCRITICAL();
+
+    while (MAX_BUFFER_LEN - RingBuffer_GetSize(&_ctx->uart.buffer) < size) {
+        if (CLI_OVFL_PEND_TIMEOUT != CLI_OVFL_TIMEOUT_MAX && \
+            HAL_GetTick() - ms_start > CLI_OVFL_PEND_TIMEOUT) break;
+    }
+
+    CLI_CRITICAL();
+    if (RingBuffer_write(&_ctx->uart.buffer, data, size) != RB_OK) {
+        FSM_TRANSIT(CLI_TIMEOUT);
+        CLI_UNCRITICAL();
+        return -1;
+    }
+    CLI_UNCRITICAL();
+}
+
 int _write(int fd, uint8_t *data, int size)
+{
+    if (fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
+        return -1;
+    }
+
+    CLI_CRITICAL();
+    CLI_State_t _state = _ctx->state;
+    CLI_UNCRITICAL();
+
+    if (_state == CLI_TRANSMITTING) {
+        int status = write_pending(data, size);
+        return MIN(size, status);
+    }
+
+    CLI_CRITICAL();
+    FSM_TRANSIT(CLI_TRANSMITTING);
+    CLI_UNCRITICAL();
+
+    if (HAL_UART_Transmit_IT(_ctx->uart.huart, data, size) != HAL_OK) {
+        int status = write_pending(data, size);
+        return MIN(size, status);
+    } else {
+        CLI_CRITICAL();
+        FSM_REVERT();
+        CLI_UNCRITICAL();
+        return size;
+    }
+}
+
+/* int _write(int fd, uint8_t *data, int size)
 {
     if (fd != STDIN_FILENO && fd != STDOUT_FILENO && fd != STDERR_FILENO) {
         return -1;
@@ -218,7 +272,7 @@ int _write(int fd, uint8_t *data, int size)
             CLI_UNCRITICAL();
             return -1;
         }
-        FSM_REVERT();
+        //FSM_REVERT();
         CLI_UNCRITICAL();
 #else
         //FSM_REVERT();
@@ -235,7 +289,7 @@ int _write(int fd, uint8_t *data, int size)
     CLI_UNCRITICAL();
 
     return size;
-}
+} */
 
 int _isatty(int fd)
 {
@@ -374,6 +428,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
         unsigned int buffer_size = RingBuffer_GetSize(&_ctx->uart.buffer);
 
         if (buffer_size > 0) {
+            //FSM_REVERT();
             UART_TransmitChunk(_ctx, buffer_size);
         } else {
             FSM_REVERT();
@@ -410,11 +465,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                 break;
             
             case '\032': // Ctrl+z pauses the main loop
+                    CLI_CRITICAL();
                     if (_ctx->prev_state == CLI_ON_HOLD) {
                         FSM_TRANSIT(CLI_PROM_PEND);
                     } else {
                         FSM_TRANSIT(CLI_ON_HOLD);
                     } 
+                    CLI_UNCRITICAL();
                     // Add check for state machine corruption?
                     break;
             
