@@ -98,6 +98,13 @@ static HAL_StatusTypeDef UART_TransmitChunk(CLI_Context_t *ctx, unsigned int buf
 }
 
 /**
+ * \brief CLI loop stub.
+ */
+void _loop(void)
+{
+}
+
+/**
  * \brief Process CLI commands in main loop.
  * \retval Returns command execution status.
  * \details Should be called in main loop when you want to process commands 

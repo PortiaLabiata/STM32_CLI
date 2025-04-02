@@ -2,13 +2,12 @@
 
 ## TODO
 
-1. Fix critical section gaps in _write, maybe add context checking?
-2. Add timeout and error handling states.
-3. Do something about potentially blocking behaviour in interrupts.
+1. Add timeout and error handling states.
+2. Do something about `_write`.
 
 ## Description
 
-This is a relatively small CLI library for STM32 UART, somewhat inspired by [uShell](https://github.com/mdiepart/ushell-stm32/tree/master), but (at least in my opinion) a little better written, although it might not be the case. It reads and writes data entirely in interrupt mode, although commands themselves are processed in the main loop.
+This is a relatively small CLI library for STM32 UART, somewhat inspired by [uShell](https://github.com/mdiepart/ushell-stm32/tree/master), but (at least in my opinion) a little better written, although it might not be true. It reads and writes data entirely in interrupt mode, although commands themselves are processed in the main loop.
 
 ## Disclaimer
 
@@ -20,7 +19,7 @@ This library is untested, likely buggy and inefficient, so DO NOT use it in any 
 
 For this library to work, at least one UART interface must be initialized and it's interrupts must be enabled. It's interrupt also must call `HAL_UART_IRQHandler(&huart)` function, because UART IO is working through callback functions. It is also necessary for HAL libraries to be included.
 
-To initialize bShell, you need to call `CLI_Init(UART_HandlyTypeDef *huart)` somewhere in the `main` function or wherever you like, hypothetically. Also you need to call `CLI_RUN()` somewhere in the main loop. Reading and writing to UART is done in interrupt mode, so there will be little to no latency. However, commands are processed inside `CLI_RUN()` function to keep callbacks as small, as possible. Because of that there might be latency in commands execution. It depends mostly on user code.
+To initialize bShell, you need to call `CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart)`. `CLI_Context_t` object contains internal information and should not be modified from the outside to avoid state machine corruption. To use the CLI, call `CLI_RUN(CLI_Context_t *ctx, void loop(void))` in the main loop. It is possible to run some code in `loop` function and pause/resume it with `Ctrl+Z`. If you don't need it, just use `LOOP_STUB()`.
 
 ### Preferences
 
@@ -28,9 +27,9 @@ To set global library preferences, `cli_const.h` file is used. All preferences a
 
 #### Ring buffer and UART interaction
 
-This library uses ring buffer to enable usage of interrupt mode. It's size can be set in `MAX_BUFFER_LEN` macro. Transmission is done (if necessary) in chunks of size `CHUNK_SIZE`. 
+This library uses ring buffer to enable usage of interrupt mode. It's size can be set in `MAX_BUFFER_LEN` macro. Transmission is done (if necessary) in chunks of size `CHUNK_SIZE`.
 
-It is possible (if you plan to write elaborate help instructions for example) to enable buffer overflow handling, practically using somewhat-polling mode for large texts. It is done by defining `CLI_OVERFLOW_PENDING`. It is possible to set timeout to this blocking section by defining `CLI_OVFL_PEND_TIMEOUT` (in SysTick ticks). If set to `CLI_OVFL_TIMEOUT_MAX`, will wait indefinetly.
+It is possible to enable buffer overflow handling, practically using somewhat-polling mode for large texts. Usually it is necessary, since buffer size is not too large. It is done by defining `CLI_OVERFLOW_PENDING`. It is possible to set timeout to this blocking section by defining `CLI_OVFL_PEND_TIMEOUT` (in SysTick ticks). If set to `CLI_OVFL_TIMEOUT_MAX`, will wait indefinetly.
 
 #### Commands' settings
 
@@ -38,11 +37,9 @@ It is possible to set maximum line length (`MAX_LINE_LEN`), maximum number of co
 
 ### Printing and logging
 
-To print data, it is possible to use either `printf`, `CLI_Print(char *message)` or `CLI_Println(char *message)`. They differ only in the form of output. It is also possible to log something by calling `CLI_Log(char *context, char *message)`. It might be useful for example to use this construction:
+To print data, it is possible to use either `printf`, `CLI_Print(CLI_Context_t *ctx, char *message)` or `CLI_Println(CLI_Context_t *ctx, char *message)`. They differ only in the form of output. It is also possible to log something by calling `CLI_Log(char *context, char *message)`. It might be useful for example to use this construction:
 
-    CLI_Log(__FILE__, "Something happened here");
-
-
+    CLI_Log(ctx, __func__, "Something happened here");
 
 ### Adding custom commands
 
@@ -54,11 +51,11 @@ Or it will be set to default "> ". Similarly, it is possible to set custom greet
 
 To add custom commands, call:
 
-    CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]));
+    CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)(int argc, char *argv[]));
 
 where `char cmd[]` is command's name and `func` is the handler. The handler takes two arguments: `int argc` (number of symbolic arguments) and `char *argv[]` (arguments themselves), kind of like `main` function in desktop C. Internal logic of commands, including argument processing, is entirely up to you.
 
-    > Warning! Checking if number of arguments is consistent with your logic is up to you also, so that it's possible to implement commands with variable number of arguments in the user side.  
+> Warning! Checking if number of arguments is consistent with your logic is up to you also, so that it's possible to implement commands with variable number of arguments in the user side.  
 
 ### Error handling
 
@@ -94,6 +91,9 @@ stateDiagram-v2
     IDLE --> TRANSMITTING : printf
     TRANSMITTING --> IDLE : REVERT
 
+    IDLE --> ON_HOLD : \032
+    ON_HOLD --> IDLE : \032
+
 ```
 
-The second state machine follows the first one, one step behind.
+The second state machine follows the first one, one step behind. This section is here for the sole purpose of stroking my ego.

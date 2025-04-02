@@ -26,6 +26,8 @@
                             _ctx->state = _ctx->prev_state; \
                             _ctx->prev_state = _state;} while (0)
 
+#define LOOP_STUB() _loop()
+
 /* Magic numbers */
 
 #define STDOUT_FILENO 0
@@ -73,7 +75,7 @@ typedef struct {
     CLI_State_t state;
     CLI_State_t prev_state;
     //char hist[MAX_HISTORY][MAX_LINE_LEN]; // Yes, static memory allocation
-    uint8_t _hist_index;
+    //uint8_t _hist_index;
     struct {
         uint8_t line[MAX_LINE_LEN];
         uint8_t *cursor_position;
@@ -105,6 +107,7 @@ int _isatty(int fd);
 
 /* Processing functions */
 
+void _loop(void);
 CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void));
 CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
     char help[]);
