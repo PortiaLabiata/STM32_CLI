@@ -185,6 +185,7 @@ static int write_no_pending(uint8_t *data, int size)
         return -1;
     }
     CLI_UNCRITICAL();
+    return size;
 }
 
 int _write(int fd, uint8_t *data, int size)
@@ -437,27 +438,46 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 #else
 
+/* Service functions */
+
+
+
 /* Configuration functions */
 
-CLI_Status_t CLI_Init(UART_HandleTypeDef *huart) {UNUSED(huart); return CLI_OK;}
+CLI_Status_t CLI_Init(CLI_Context_t *ctx, UART_HandleTypeDef *huart) {
+    UNUSED(ctx); UNUSED(huart); 
+    return CLI_OK;
+}
 
 int _write(int fd, uint8_t *data, int size)
-{UNUSED(fd); UNUSED(data); UNUSED(size); return 0;}
+{
+    UNUSED(fd); UNUSED(data); UNUSED(size); 
+    return 0;
+}
 
 int _isatty(int fd){UNUSED(fd); return 0;}
 
 /* Processing functions */
 
-CLI_Status_t CLI_RUN(void) {return CLI_OK;}
+CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void)) {
+    UNUSED(ctx); UNUSED(loop);
+    return CLI_OK;
+}
 
-CLI_Status_t CLI_AddCommand(char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
-    char help[]) {UNUSED(cmd); UNUSED(func); UNUSED(help); return CLI_OK;}
+CLI_Status_t CLI_AddCommand(CLI_Context_t *ctx, char cmd[], CLI_Status_t (*func)(int argc, char *argv[]), \
+    char help[]) {
+        UNUSED(cmd); UNUSED(func); UNUSED(help); UNUSED(ctx);
+        return CLI_OK;
+}
 
 /* HIgh-level IO */
 
-void CLI_Println(char message[]) {UNUSED(message);}
-void CLI_Log(char context[], char message[]) {UNUSED(context); UNUSED(message);}
-void CLI_Print(char message[]) {UNUSED(message);}
+void CLI_Println(CLI_Context_t *ctx, char message[]) {UNUSED(message); UNUSED(ctx);}
+void CLI_Log(CLI_Context_t *ctx, char context[], char message[]) 
+    {UNUSED(ctx); UNUSED(context); UNUSED(message);}
+void CLI_Print(CLI_Context_t *ctx, char message[]) {UNUSED(ctx); UNUSED(message);}
+char *CLI_Status2Str(CLI_Status_t _status) {UNUSED(_status);}
+void _loop(void);
 
 __weak void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {UNUSED(huart);}
 __weak void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {UNUSED(huart);}
