@@ -91,8 +91,8 @@ stateDiagram-v2
     IDLE --> TRANSMITTING : printf
     TRANSMITTING --> IDLE : REVERT
 
-    IDLE --> ON_HOLD : \032
-    ON_HOLD --> IDLE : \032
+    RECEIVING --> ON_HOLD : \032
+    ON_HOLD --> IDLE : \032 and previous state is ON_HOLD
 
 ```
 

@@ -7,6 +7,8 @@ CLI_Status_t status = CLI_OK;
 
 void loop(void)
 {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(500);
 }
 
 int main(void)

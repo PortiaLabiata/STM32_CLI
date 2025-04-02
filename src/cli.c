@@ -116,6 +116,7 @@ CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void))
 {
     if (ctx->state == CLI_ON_HOLD) {
         loop();
+        return CLI_OK;
     }
 
     CLI_CRITICAL();
@@ -409,11 +410,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                 break;
             
             case '\032': // Ctrl+z pauses the main loop
-                    if (_ctx->state == CLI_IDLE) {
-                        FSM_TRANSIT(CLI_ON_HOLD);
-                    } else {
+                    if (_ctx->prev_state == CLI_ON_HOLD) {
                         FSM_TRANSIT(CLI_IDLE);
-                    } // Add check for state machine corruption?
+                    } else {
+                        FSM_TRANSIT(CLI_ON_HOLD);
+                    } 
+                    // Add check for state machine corruption?
                     break;
             
             default:
