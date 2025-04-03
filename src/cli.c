@@ -460,7 +460,8 @@ int _isatty(int fd){UNUSED(fd); return 0;}
 /* Processing functions */
 
 CLI_Status_t CLI_RUN(CLI_Context_t *ctx, void loop(void)) {
-    UNUSED(ctx); UNUSED(loop);
+    UNUSED(ctx);
+    loop();
     return CLI_OK;
 }
 
