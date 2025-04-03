@@ -3,3 +3,10 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+src/configure.c
+src/stm32f10x_it.c
+src/main.c
+include/configure.h
+include/stm32f10x_it.h
+include/main.h
+platformio.ini
